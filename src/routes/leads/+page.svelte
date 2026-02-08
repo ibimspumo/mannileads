@@ -8,19 +8,15 @@
 	import Button from '$lib/components/atoms/Button.svelte';
 	import type { Lead } from '$lib/types/lead';
 
+	const loading = $derived($leads.length === 0 && !leads.loaded);
+
 	const filtered = $derived.by(() => {
 		let result = $leads;
-		// Search
 		if ($filters.search) result = searchLeads(result, $filters.search);
-		// Segment
 		if ($filters.segment) result = result.filter(l => l.segment === $filters.segment);
-		// Status
 		if ($filters.status) result = result.filter(l => l.status === $filters.status);
-		// PLZ
 		if ($filters.plz) result = result.filter(l => l.plz.startsWith($filters.plz));
-		// Score range
 		result = result.filter(l => l.score >= $filters.scoreMin && l.score <= $filters.scoreMax);
-		// Sort
 		const dir = $filters.sortDir === 'asc' ? 1 : -1;
 		const key = $filters.sortBy as keyof Lead;
 		result = [...result].sort((a, b) => {
@@ -53,10 +49,10 @@
 	<title>Leads — ManniLeads</title>
 </svelte:head>
 
-<div class="space-y-4">
-	<div class="flex items-center justify-between">
+<div class="space-y-4 animate-fade-in">
+	<div class="flex items-center justify-between flex-wrap gap-3">
 		<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
-			Leads <span class="text-sm font-normal text-[var(--color-text-muted)]">({filtered.length})</span>
+			Leads <span class="text-sm font-normal text-[var(--color-text-muted)] font-mono">({filtered.length})</span>
 		</h1>
 		<div class="flex gap-2">
 			<Button variant="ghost" size="sm" onclick={doExportCSV}>CSV ↓</Button>
@@ -69,7 +65,23 @@
 
 	<FilterBar />
 
-	<div class="bg-[var(--color-surface-800)] border border-[var(--color-surface-600)] rounded-lg overflow-hidden">
-		<LeadTable filteredLeads={filtered} sortBy={$filters.sortBy} sortDir={$filters.sortDir} onsort={toggleSort} />
-	</div>
+	{#if loading}
+		<div class="panel p-8">
+			<div class="space-y-3">
+				{#each [1,2,3,4,5] as _}
+					<div class="flex gap-4">
+						<div class="skeleton h-5 w-12"></div>
+						<div class="skeleton h-5 w-40"></div>
+						<div class="skeleton h-5 w-24"></div>
+						<div class="skeleton h-5 w-20"></div>
+						<div class="skeleton h-5 w-16"></div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{:else}
+		<div class="panel overflow-hidden">
+			<LeadTable filteredLeads={filtered} sortBy={$filters.sortBy} sortDir={$filters.sortDir} onsort={toggleSort} />
+		</div>
+	{/if}
 </div>
