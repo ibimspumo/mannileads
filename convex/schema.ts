@@ -38,7 +38,8 @@ export default defineSchema({
     kiWettbewerb: v.optional(v.string()),          // Wettbewerbssituation
     kiAnsprache: v.optional(v.string()),           // Vorgeschlagener Pitch/Ansprache (AgentZ)
     kiAnspracheSig: v.optional(v.string()),        // Pitch für Schwerin ist Geil Werbung
-    kiScore: v.optional(v.number()),               // KI-Score 0-100 (überschreibt ggf. Scraper-Score)
+    kiScore: v.optional(v.number()),               // KI-Score 0-100
+    kiScoreBegruendung: v.optional(v.string()),    // Warum dieser Score?
     kiSegment: v.optional(v.string()),             // KI-Segment-Empfehlung
     // Status
     status: v.union(

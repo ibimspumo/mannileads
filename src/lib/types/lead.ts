@@ -46,6 +46,7 @@ export interface Lead {
 	kiAnsprache?: string;
 	kiAnspracheSig?: string;
 	kiScore?: number;
+	kiScoreBegruendung?: string;
 	kiSegment?: string;
 	// Website Content
 	websiteText?: string;

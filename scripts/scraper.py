@@ -360,7 +360,13 @@ STILREGELN für kiAnsprache und kiAnspracheSig:
 - KEIN "Bilder posten", KEIN "Instagram und Facebook" als Hauptfokus. TikTok und Kurzvideos sind der Kern!
 - "tags" = Array mit 2-5 passenden Tags zur Kategorisierung. Beispiele: "Einzelunternehmer", "Filiale/Kette", "Premium", "Budget", "Social-Media-aktiv", "Social-Media-schwach", "Website-modern", "Website-veraltet", "Gastronomie", "Gesundheit", "Handwerk", "Dienstleistung", "Einzelhandel", "B2B", "B2C". Wähle die passendsten.
 - "istEchteFirma" = true wenn es ein echtes lokales Unternehmen ist, false wenn es ein Portal/Verzeichnis/überregionale Kette ist
-- "kiScore" = Bewertung 0-100 wie gut dieser Lead für eine Social-Media-Agentur ist (höher = besser)
+- "kiScore" = Bewertung 0-100 wie gut dieser Lead für eine Social-Media-Agentur ist. SEI DIFFERENZIERT, nicht immer 85! Orientierung:
+  90-100: Perfekter Lead (lokales Unternehmen, B2C, keine Social-Media-Präsenz, hoher Bedarf an Sichtbarkeit)
+  70-89: Guter Lead (lokales Unternehmen mit Potenzial, etwas Social Media aber ausbaufähig)
+  50-69: Mittelmäßig (hat schon Social Media oder wenig Bedarf, z.B. Arztpraxen die nicht werben müssen)
+  30-49: Schwach (Filialen/Ketten die zentral gesteuert werden, sehr kleine Betriebe)
+  0-29: Ungeeignet (kein sinnvoller Ansatzpunkt für Social-Media-Agentur)
+- "kiScoreBegruendung" = 1-2 Sätze warum dieser Score vergeben wurde. Was spricht für/gegen diesen Lead?
 
 INFO zu schwerinistgeil.de (SIG):
 Schwerin ist Geil ist eine neue satirische Nachrichtenwebsite über Schwerin — wie "Der Postillon" aber lokal für Schwerin. Tägliche Satire-Artikel über lokale Themen, Stadtpolitik, Alltagsabsurditäten. Zielgruppe: Schweriner zwischen 20-50 Jahren.
@@ -383,7 +389,8 @@ Antworte NUR mit validem JSON, keine Erklärungen:
   "kiAnspracheSig": "",
   "tags": ["Beispiel-Tag1", "Beispiel-Tag2"],
   "istEchteFirma": true,
-  "kiScore": 50
+  "kiScore": 50,
+  "kiScoreBegruendung": ""
 }}"""
 
 
@@ -406,7 +413,7 @@ def analyze_with_gemini(website_data: dict, branche: str, plz: str, ort: str, ap
     payload = {
         "model": GEMINI_MODEL,
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.1,
+        "temperature": 0.3,
         "max_tokens": 800,
     }
 
@@ -503,6 +510,7 @@ def build_lead(gemini_data: dict, website_data: dict, branche: str, plz: str, or
         "kiAnsprache": (gemini_data.get("kiAnsprache") or "").strip(),
         "kiAnspracheSig": (gemini_data.get("kiAnspracheSig") or "").strip(),
         "kiScore": ki_score,
+        "kiScoreBegruendung": (gemini_data.get("kiScoreBegruendung") or "").strip(),
         "kiSegment": segment,
         "notizen": f"Scraper v3 (Gemini). Snippet: {strip_html(snippet)[:200]}",
         "history": [{"timestamp": now, "aktion": "Erstellt", "details": f"Scraper v3 + Gemini Flash (PLZ {plz})"}],

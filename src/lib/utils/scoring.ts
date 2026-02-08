@@ -1,52 +1,18 @@
 import type { Lead, ScoreBreakdownItem, Segment } from '$lib/types/lead';
 
 export function berechneScore(lead: Partial<Lead>): number {
-	// Wenn KI-Score vorhanden, diesen verwenden
 	if (lead.kiScore != null && lead.kiScore > 0) return lead.kiScore;
-	// Fallback: statischer Score
 	return lead.score ?? 0;
 }
 
 export function getScoreBreakdown(lead: Partial<Lead>): ScoreBreakdownItem[] {
-	const items: ScoreBreakdownItem[] = [
-		{
-			label: 'KI-Bewertung',
-			punkte: lead.kiScore ?? 0,
-			maxPunkte: 100,
-			erfuellt: (lead.kiScore ?? 0) >= 50
-		},
-		{
-			label: 'Email vorhanden',
-			punkte: lead.email ? 1 : 0,
-			maxPunkte: 1,
-			erfuellt: !!lead.email
-		},
-		{
-			label: 'Telefon vorhanden',
-			punkte: lead.telefon ? 1 : 0,
-			maxPunkte: 1,
-			erfuellt: !!lead.telefon
-		},
-		{
-			label: 'Ansprechpartner bekannt',
-			punkte: lead.ansprechpartner ? 1 : 0,
-			maxPunkte: 1,
-			erfuellt: !!lead.ansprechpartner
-		},
-		{
-			label: 'Social Media vorhanden',
-			punkte: lead.socialMedia ? 1 : 0,
-			maxPunkte: 1,
-			erfuellt: !!lead.socialMedia
-		},
-		{
-			label: 'KI-Analyse durchgeführt',
-			punkte: lead.kiAnalysiert ? 1 : 0,
-			maxPunkte: 1,
-			erfuellt: !!lead.kiAnalysiert
-		}
+	// Nur noch für Datenvollständigkeit, nicht für Score-Berechnung
+	return [
+		{ label: 'Email', punkte: lead.email ? 1 : 0, maxPunkte: 1, erfuellt: !!lead.email },
+		{ label: 'Telefon', punkte: lead.telefon ? 1 : 0, maxPunkte: 1, erfuellt: !!lead.telefon },
+		{ label: 'Ansprechpartner', punkte: lead.ansprechpartner ? 1 : 0, maxPunkte: 1, erfuellt: !!lead.ansprechpartner },
+		{ label: 'Social Media', punkte: lead.socialMedia ? 1 : 0, maxPunkte: 1, erfuellt: !!lead.socialMedia },
 	];
-	return items;
 }
 
 export function berechneSegment(score: number): Segment {

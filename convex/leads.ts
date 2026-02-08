@@ -76,6 +76,7 @@ const leadFields = {
   kiAnsprache: v.optional(v.string()),
   kiAnspracheSig: v.optional(v.string()),
   kiScore: v.optional(v.number()),
+  kiScoreBegruendung: v.optional(v.string()),
   kiSegment: v.optional(v.string()),
   status: v.union(
     v.literal("Neu"),

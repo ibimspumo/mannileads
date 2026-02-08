@@ -5,15 +5,11 @@
 	import LeadForm from '$lib/components/organisms/LeadForm.svelte';
 	import ScoreBadge from '$lib/components/atoms/ScoreBadge.svelte';
 	import Badge from '$lib/components/atoms/Badge.svelte';
-	import ScoreBreakdown from '$lib/components/molecules/ScoreBreakdown.svelte';
 	import Button from '$lib/components/atoms/Button.svelte';
-	import { getScoreBreakdown, getSegmentColor, getScoreColor } from '$lib/utils/scoring';
+	import { getSegmentColor, getScoreColor } from '$lib/utils/scoring';
 	import type { Lead } from '$lib/types/lead';
 
 	const lead = $derived($leads.find(l => l.id === $page.params.id));
-	const breakdown = $derived(lead ? getScoreBreakdown(lead) : []);
-	const totalMax = $derived(breakdown.reduce((s, i) => s + i.maxPunkte, 0));
-
 	let editing = $state(false);
 	let saving = $state(false);
 
@@ -307,7 +303,7 @@
 			<div class="space-y-4 stagger">
 				<!-- Score Visual -->
 				<div class="panel p-4">
-					<h3 class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)] mb-3">Score</h3>
+					<h3 class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)] mb-3">KI-Score</h3>
 					<!-- Big score display -->
 					<div class="flex items-center justify-center mb-4">
 						<div class="relative w-24 h-24 flex items-center justify-center">
@@ -324,11 +320,28 @@
 							<span class="text-2xl font-bold font-mono" style="color: {getScoreColor(lead.score)}">{lead.score}</span>
 						</div>
 					</div>
-					<!-- Breakdown -->
-					<ScoreBreakdown items={breakdown} />
-					<div class="mt-3 pt-3 border-t border-[var(--color-surface-600)] flex items-center justify-between">
-						<span class="text-xs font-bold text-[var(--color-text-primary)]">Gesamt</span>
-						<span class="text-xs font-mono font-bold" style="color: {getScoreColor(lead.score)}">{lead.score}/{totalMax}</span>
+					<!-- Score Begründung -->
+					{#if lead.kiScoreBegruendung}
+						<p class="text-xs text-[var(--color-text-secondary)] leading-relaxed mb-3">{lead.kiScoreBegruendung}</p>
+					{/if}
+					<!-- Datenvollständigkeit -->
+					<div class="pt-3 border-t border-[var(--color-surface-600)] space-y-1.5">
+						<div class="flex items-center justify-between text-xs">
+							<span class="text-[var(--color-text-muted)]">Email</span>
+							<span class="{lead.email ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'}">{lead.email ? '✓' : '✗'}</span>
+						</div>
+						<div class="flex items-center justify-between text-xs">
+							<span class="text-[var(--color-text-muted)]">Telefon</span>
+							<span class="{lead.telefon ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'}">{lead.telefon ? '✓' : '✗'}</span>
+						</div>
+						<div class="flex items-center justify-between text-xs">
+							<span class="text-[var(--color-text-muted)]">Ansprechpartner</span>
+							<span class="{lead.ansprechpartner ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'}">{lead.ansprechpartner ? '✓' : '✗'}</span>
+						</div>
+						<div class="flex items-center justify-between text-xs">
+							<span class="text-[var(--color-text-muted)]">Social Media</span>
+							<span class="{lead.socialMedia ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'}">{lead.socialMedia ? '✓' : '✗'}</span>
+						</div>
 					</div>
 				</div>
 
