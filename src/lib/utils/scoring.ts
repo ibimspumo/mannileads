@@ -1,71 +1,49 @@
 import type { Lead, ScoreBreakdownItem, Segment } from '$lib/types/lead';
 
 export function berechneScore(lead: Partial<Lead>): number {
-	const breakdown = getScoreBreakdown(lead);
-	return breakdown.reduce((sum, item) => sum + item.punkte, 0);
+	// Wenn KI-Score vorhanden, diesen verwenden
+	if (lead.kiScore != null && lead.kiScore > 0) return lead.kiScore;
+	// Fallback: statischer Score
+	return lead.score ?? 0;
 }
 
 export function getScoreBreakdown(lead: Partial<Lead>): ScoreBreakdownItem[] {
 	const items: ScoreBreakdownItem[] = [
 		{
-			label: 'Website vorhanden',
-			punkte: lead.website ? 15 : 0,
-			maxPunkte: 15,
-			erfuellt: !!lead.website
-		},
-		{
-			label: 'Website-Qualität',
-			punkte: Math.min((lead.websiteQualitaet ?? 0) * 3, 15),
-			maxPunkte: 15,
-			erfuellt: (lead.websiteQualitaet ?? 0) >= 3
-		},
-		{
-			label: 'Social Media vorhanden',
-			punkte: lead.socialMedia ? 10 : 0,
-			maxPunkte: 10,
-			erfuellt: !!lead.socialMedia
-		},
-		{
-			label: 'Ansprechpartner bekannt',
-			punkte: lead.ansprechpartner ? 15 : 0,
-			maxPunkte: 15,
-			erfuellt: !!lead.ansprechpartner
+			label: 'KI-Bewertung',
+			punkte: lead.kiScore ?? 0,
+			maxPunkte: 100,
+			erfuellt: (lead.kiScore ?? 0) >= 50
 		},
 		{
 			label: 'Email vorhanden',
-			punkte: lead.email ? 10 : 0,
-			maxPunkte: 10,
+			punkte: lead.email ? 1 : 0,
+			maxPunkte: 1,
 			erfuellt: !!lead.email
 		},
 		{
 			label: 'Telefon vorhanden',
-			punkte: lead.telefon ? 5 : 0,
-			maxPunkte: 5,
+			punkte: lead.telefon ? 1 : 0,
+			maxPunkte: 1,
 			erfuellt: !!lead.telefon
 		},
 		{
-			label: 'Branche angegeben',
-			punkte: lead.branche ? 10 : 0,
-			maxPunkte: 10,
-			erfuellt: !!lead.branche
+			label: 'Ansprechpartner bekannt',
+			punkte: lead.ansprechpartner ? 1 : 0,
+			maxPunkte: 1,
+			erfuellt: !!lead.ansprechpartner
 		},
 		{
-			label: 'Firmengröße angegeben',
-			punkte: lead.groesse ? 5 : 0,
-			maxPunkte: 5,
-			erfuellt: !!lead.groesse
+			label: 'Social Media vorhanden',
+			punkte: lead.socialMedia ? 1 : 0,
+			maxPunkte: 1,
+			erfuellt: !!lead.socialMedia
 		},
 		{
-			label: 'Google-Bewertung vorhanden',
-			punkte: lead.googleBewertung ? 10 : 0,
-			maxPunkte: 10,
-			erfuellt: !!lead.googleBewertung
-		},
-		{
-			label: 'Notizen/KI-Zusammenfassung',
-			punkte: (lead.kiZusammenfassung || lead.notizen) ? 5 : 0,
-			maxPunkte: 5,
-			erfuellt: !!(lead.kiZusammenfassung || lead.notizen)
+			label: 'KI-Analyse durchgeführt',
+			punkte: lead.kiAnalysiert ? 1 : 0,
+			maxPunkte: 1,
+			erfuellt: !!lead.kiAnalysiert
 		}
 	];
 	return items;

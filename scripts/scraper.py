@@ -52,7 +52,7 @@ CONVEX_URL = "https://energetic-civet-402.convex.cloud"
 STATE_FILE = Path(__file__).parent / "scraper_state.json"
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-GEMINI_MODEL = "google/gemini-2.0-flash-001"
+GEMINI_MODEL = "google/gemini-3-flash-preview"
 RATE_LIMIT_SECONDS = 1.1  # Brave Free Tier
 
 # ---- Skip-Domains ----
@@ -272,8 +272,8 @@ def collect_website_data(url: str) -> Optional[Dict[str, str]]:
         log.info(f"  → Nicht erreichbar")
         return None
 
-    # Extract main page text (max 1000 chars)
-    main_text = extract_text(main_html, max_chars=1000)
+    # Extract main page text (max 4000 chars — genug für Leistungen/Beschreibung)
+    main_text = extract_text(main_html, max_chars=4000)
 
     # Find and fetch impressum
     impressum_text = ""
@@ -282,12 +282,12 @@ def collect_website_data(url: str) -> Optional[Dict[str, str]]:
         time.sleep(0.3)
         imp_html = fetch_page(impressum_url)
         if imp_html:
-            impressum_text = extract_text(imp_html, max_chars=2000)
+            impressum_text = extract_text(imp_html, max_chars=3000)
 
     # If no separate impressum page, check if main page has impressum content
     if not impressum_text:
         if re.search(r'(?:Angaben\s+gemäß|Impressum|Verantwortlich\s+(?:i\.\s*S\.|gemäß))', main_html, re.IGNORECASE):
-            impressum_text = extract_text(main_html, max_chars=2000)
+            impressum_text = extract_text(main_html, max_chars=3000)
 
     if not impressum_text:
         log.info(f"  → Kein Impressum gefunden")
@@ -344,13 +344,28 @@ WICHTIG:
 - "kiOnlineAuftritt" = Kurzbewertung der Website (1-2 Sätze: modern/veraltet, mobil-optimiert, Inhalte)
 - "kiSchwaechen" = Schwächen im Online-Auftritt (wo könnten wir als Social-Media-Agentur helfen?)
 - "kiChancen" = Konkrete Chancen für eine Social-Media-Agentur (Video, Reels, Ads, etc.)
-- "kiAnsprache" = Ein konkreter Pitch-Satz für AgentZ als Social-Media-Agentur (wie würden wir diese Firma ansprechen?)
-- "kiAnspracheSig" = Pitch für Werbung auf schwerinistgeil.de (siehe Info unten). Konkreter Vorschlag, warum die Firma auf dieser Satire-Website werben sollte. Bezug auf deren Zielgruppe + die SIG-Leserschaft.
+- "kiAnsprache" = NUR ein kurzes persönliches Intro (3-4 Sätze) für AgentZ Media. Beginnt mit Anrede ("Hallo Herr/Frau [Name],\n\n" oder "Sehr geehrte Damen und Herren,\n\n"). Dann kurz erklären wer AgentZ ist (siehe INFO unten) und persönlichen Bezug herstellen: warum täglicher Video-Content für genau diese Firma relevant wäre. KEIN Abschluss, KEINE Grußformel, KEIN "Beste Grüße". Wird als Variable in eine Email-Vorlage eingesetzt.
+
+INFO zu AgentZ Media:
+AgentZ Media ist eine Content-Agentur aus Schwerin. Unser Motto: "Reichweite durch Content, nicht durch Werbung!" Wir produzieren für Unternehmen täglich Kurzvideos (TikTok, Instagram Reels, YouTube Shorts). 365 Videos pro Jahr, komplett Done-for-you: von der Idee über den Dreh bis zum Upload. Der Kunde muss sich um nichts kümmern. Keine Bilder, keine Stockfotos, sondern echte, authentische Kurzvideos. Organische Reichweite statt bezahlte Werbung. Monatliche Pauschale, transparent und fair.
+- "kiAnspracheSig" = NUR ein kurzes persönliches Intro (3-4 Sätze) für Banner-Werbung auf schwerinistgeil.de. Anrede + Absatz, dann kurz erklären was SIG ist (satirische Nachrichtenseite rund um Schwerin, humorvolle Artikel über lokale Themen, die gezielt Schweriner ansprechen). Dann persönlicher Bezug: warum Bannerwerbung auf SIG für diese Firma sinnvoll wäre. KEIN Abschluss, KEINE Grußformel. Wird als Variable in eine Email-Vorlage eingesetzt.
+
+STILREGELN für kiAnsprache und kiAnspracheSig:
+- Zwischen Anrede und Text IMMER einen Absatz (echtes Newline \n\n), z.B.: "Hallo Herr Müller,\n\nwir sind AgentZ Media..."
+- KEINE langen Bindestriche (— oder –), stattdessen Kommas oder Punkte verwenden
+- KEINE Emojis, niemals
+- Natürlicher deutscher Schreibstil, soll sich NICHT wie KI lesen
+- Locker-professionell, nicht steif oder übertrieben förmlich
+- Kurze Sätze bevorzugen
+- KEIN "Bilder posten", KEIN "Instagram und Facebook" als Hauptfokus. TikTok und Kurzvideos sind der Kern!
+- "tags" = Array mit 2-5 passenden Tags zur Kategorisierung. Beispiele: "Einzelunternehmer", "Filiale/Kette", "Premium", "Budget", "Social-Media-aktiv", "Social-Media-schwach", "Website-modern", "Website-veraltet", "Gastronomie", "Gesundheit", "Handwerk", "Dienstleistung", "Einzelhandel", "B2B", "B2C". Wähle die passendsten.
 - "istEchteFirma" = true wenn es ein echtes lokales Unternehmen ist, false wenn es ein Portal/Verzeichnis/überregionale Kette ist
 - "kiScore" = Bewertung 0-100 wie gut dieser Lead für eine Social-Media-Agentur ist (höher = besser)
 
 INFO zu schwerinistgeil.de (SIG):
-Schwerin ist Geil ist eine satirische Nachrichtenwebsite über Schwerin — wie "Der Postillon" aber lokal für Schwerin. Tägliche Satire-Artikel über lokale Themen, Stadtpolitik, Alltagsabsurditäten. Hohe lokale Reichweite, junge bis mittelalte Zielgruppe (20-50), sehr engagierte Community die Artikel teilt. Wir verkaufen Werbeplätze (Banner, Sponsored Posts, Advertorials) an lokale Unternehmen. Der Vorteil: extrem zielgenaue lokale Reichweite in Schwerin, hohe Engagement-Rate, und die Leser sind kaufkräftige Schwerin-Bewohner.
+Schwerin ist Geil ist eine neue satirische Nachrichtenwebsite über Schwerin — wie "Der Postillon" aber lokal für Schwerin. Tägliche Satire-Artikel über lokale Themen, Stadtpolitik, Alltagsabsurditäten. Zielgruppe: Schweriner zwischen 20-50 Jahren.
+Wir verkaufen BANNER-WERBEPLÄTZE (KEINE Sponsored Posts oder Advertorials!). Ähnlich wie bei Google Ads: Banner oberhalb/innerhalb der Seite, die sich natürlich in den Content einfügen. Vorteil: gezielt lokale Schweriner erreichen.
+WICHTIG für den Pitch: KEINE konkreten Reichweiten-Zahlen nennen (keine "tausende Leser" o.ä.)! Die Seite ist neu. Stattdessen den Vorteil der lokalen Zielgruppe und die Passgenauigkeit für das jeweilige Unternehmen betonen.
 
 Antworte NUR mit validem JSON, keine Erklärungen:
 {{
@@ -366,6 +381,7 @@ Antworte NUR mit validem JSON, keine Erklärungen:
   "kiChancen": "",
   "kiAnsprache": "",
   "kiAnspracheSig": "",
+  "tags": ["Beispiel-Tag1", "Beispiel-Tag2"],
   "istEchteFirma": true,
   "kiScore": 50
 }}"""
@@ -378,8 +394,8 @@ def analyze_with_gemini(website_data: dict, branche: str, plz: str, ort: str, ap
         branche=branche,
         plz=plz,
         ort=ort,
-        main_text=website_data["main_text"][:1000],
-        impressum_text=website_data["impressum_text"][:2000],
+        main_text=website_data["main_text"][:4000],
+        impressum_text=website_data["impressum_text"][:3000],
         social_links="\n".join(website_data.get("social_links", [])) or "(keine gefunden)",
     )
 
@@ -475,7 +491,7 @@ def build_lead(gemini_data: dict, website_data: dict, branche: str, plz: str, or
         "kiZusammenfassung": (gemini_data.get("kiZusammenfassung") or "").strip(),
         "segment": segment,
         "segmentManuell": False,
-        "tags": [branche],
+        "tags": gemini_data.get("tags", [branche]) if isinstance(gemini_data.get("tags"), list) else [branche],
         "status": "Neu",
         "kiAnalysiert": True,
         "kiAnalysiertAm": now,
