@@ -74,6 +74,7 @@ const leadFields = {
   kiChancen: v.optional(v.string()),
   kiWettbewerb: v.optional(v.string()),
   kiAnsprache: v.optional(v.string()),
+  kiAnspracheSig: v.optional(v.string()),
   kiScore: v.optional(v.number()),
   kiSegment: v.optional(v.string()),
   status: v.union(

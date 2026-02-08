@@ -33,6 +33,7 @@ except ImportError:
 
 # ---- Konfiguration ----
 
+DEFAULT_STADT = "Schwerin"
 DEFAULT_PLZ = ["19053", "19055", "19057", "19059", "19061", "19063"]
 DEFAULT_BRANCHEN = [
     "Friseur", "Restaurant", "Autowerkstatt", "Zahnarzt", "Rechtsanwalt",
@@ -41,6 +42,7 @@ DEFAULT_BRANCHEN = [
     "Optiker", "Physiotherapie", "Hotel", "Café", "Blumenladen", "Fahrschule"
 ]
 
+# Wird dynamisch befüllt über --stadt Flag
 PLZ_ORT_MAP = {
     "19053": "Schwerin", "19055": "Schwerin", "19057": "Schwerin",
     "19059": "Schwerin", "19061": "Schwerin", "19063": "Schwerin",
@@ -333,7 +335,7 @@ ORT: {ort}
 Extrahiere folgende Felder als JSON. Wenn ein Feld nicht ermittelbar ist, setze einen leeren String "".
 WICHTIG: 
 - "firma" = der ECHTE Firmenname aus dem Impressum (NICHT "Impressum", "Datenschutz", "§5 TMG" oder ähnliche Überschriften!)
-- "email" = geschäftliche Kontakt-Email (NICHT info@portal.de oder support@plattform.de)
+- "email" = geschäftliche Kontakt-Email im Format name@domain.de (NICHT "Email Protected", "[email protected]", info@portal.de oder support@plattform.de — wenn keine echte Email erkennbar, leerer String!)
 - "telefon" = Telefonnummer mit Vorwahl
 - "ansprechpartner" = Name des Inhabers/Geschäftsführers
 - "position" = Rolle (z.B. "Geschäftsführer", "Inhaber", "Zahnarzt")
@@ -342,9 +344,13 @@ WICHTIG:
 - "kiOnlineAuftritt" = Kurzbewertung der Website (1-2 Sätze: modern/veraltet, mobil-optimiert, Inhalte)
 - "kiSchwaechen" = Schwächen im Online-Auftritt (wo könnten wir als Social-Media-Agentur helfen?)
 - "kiChancen" = Konkrete Chancen für eine Social-Media-Agentur (Video, Reels, Ads, etc.)
-- "kiAnsprache" = Ein konkreter Satz, wie man diese Firma ansprechen könnte (Pitch)
+- "kiAnsprache" = Ein konkreter Pitch-Satz für AgentZ als Social-Media-Agentur (wie würden wir diese Firma ansprechen?)
+- "kiAnspracheSig" = Pitch für Werbung auf schwerinistgeil.de (siehe Info unten). Konkreter Vorschlag, warum die Firma auf dieser Satire-Website werben sollte. Bezug auf deren Zielgruppe + die SIG-Leserschaft.
 - "istEchteFirma" = true wenn es ein echtes lokales Unternehmen ist, false wenn es ein Portal/Verzeichnis/überregionale Kette ist
 - "kiScore" = Bewertung 0-100 wie gut dieser Lead für eine Social-Media-Agentur ist (höher = besser)
+
+INFO zu schwerinistgeil.de (SIG):
+Schwerin ist Geil ist eine satirische Nachrichtenwebsite über Schwerin — wie "Der Postillon" aber lokal für Schwerin. Tägliche Satire-Artikel über lokale Themen, Stadtpolitik, Alltagsabsurditäten. Hohe lokale Reichweite, junge bis mittelalte Zielgruppe (20-50), sehr engagierte Community die Artikel teilt. Wir verkaufen Werbeplätze (Banner, Sponsored Posts, Advertorials) an lokale Unternehmen. Der Vorteil: extrem zielgenaue lokale Reichweite in Schwerin, hohe Engagement-Rate, und die Leser sind kaufkräftige Schwerin-Bewohner.
 
 Antworte NUR mit validem JSON, keine Erklärungen:
 {{
@@ -359,6 +365,7 @@ Antworte NUR mit validem JSON, keine Erklärungen:
   "kiSchwaechen": "",
   "kiChancen": "",
   "kiAnsprache": "",
+  "kiAnspracheSig": "",
   "istEchteFirma": true,
   "kiScore": 50
 }}"""
@@ -478,6 +485,7 @@ def build_lead(gemini_data: dict, website_data: dict, branche: str, plz: str, or
         "kiChancen": (gemini_data.get("kiChancen") or "").strip(),
         "kiWettbewerb": "",
         "kiAnsprache": (gemini_data.get("kiAnsprache") or "").strip(),
+        "kiAnspracheSig": (gemini_data.get("kiAnspracheSig") or "").strip(),
         "kiScore": ki_score,
         "kiSegment": segment,
         "notizen": f"Scraper v3 (Gemini). Snippet: {strip_html(snippet)[:200]}",
@@ -609,6 +617,12 @@ def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
                         seen_domains.add(root)
                         continue
 
+                    # Validate email format
+                    raw_email = (gemini_data.get("email") or "").strip()
+                    if raw_email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', raw_email):
+                        log.info(f"  ⚠ Ungültige Email verworfen: '{raw_email}'")
+                        gemini_data["email"] = ""
+
                     # Check firma name
                     firma = (gemini_data.get("firma") or "").strip()
                     if not firma or len(firma) < 3:
@@ -689,6 +703,7 @@ def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
 
 def main():
     parser = argparse.ArgumentParser(description="ManniLeads Scraper v3 — Gemini-Powered")
+    parser.add_argument("--stadt", type=str, default=None, help="Stadtname (z.B. 'Rostock'). Setzt automatisch PLZ_ORT_MAP.")
     parser.add_argument("--plz", type=str, default=None, help="Kommagetrennte PLZ-Liste")
     parser.add_argument("--branchen", type=str, default=None, help="Kommagetrennte Branchen")
     parser.add_argument("--dry-run", action="store_true", help="Nicht in Convex schreiben")
@@ -714,6 +729,13 @@ def main():
 
     plz_list = args.plz.split(",") if args.plz else DEFAULT_PLZ
     branchen = [b.strip() for b in args.branchen.split(",")] if args.branchen else DEFAULT_BRANCHEN
+
+    # Dynamische Stadt: PLZ_ORT_MAP updaten
+    if args.stadt:
+        global PLZ_ORT_MAP
+        for plz in plz_list:
+            PLZ_ORT_MAP[plz] = args.stadt
+        log.info(f"Stadt: {args.stadt} (PLZ: {', '.join(plz_list)})")
 
     log.info("=" * 60)
     log.info("ManniLeads Scraper v3.0 — Gemini-Powered")

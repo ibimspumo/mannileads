@@ -257,11 +257,19 @@
 								{/if}
 							</div>
 
-							<!-- Ansprache - hervorgehoben -->
+							<!-- Ansprache AgentZ - hervorgehoben -->
 							{#if lead.kiAnsprache}
 								<div class="border-l-2 border-[var(--color-accent)] pl-4 py-2 bg-[var(--color-surface-700)] rounded-r">
-									<span class="text-[10px] uppercase tracking-widest text-[var(--color-accent)]">Ansprache / Pitch</span>
+									<span class="text-[10px] uppercase tracking-widest text-[var(--color-accent)]">📢 Pitch — AgentZ (Social Media)</span>
 									<p class="text-sm text-[var(--color-text-primary)] mt-1 whitespace-pre-wrap leading-relaxed">{lead.kiAnsprache}</p>
+								</div>
+							{/if}
+
+							<!-- Ansprache SIG - hervorgehoben -->
+							{#if lead.kiAnspracheSig}
+								<div class="border-l-2 border-[#22c55e] pl-4 py-2 bg-[var(--color-surface-700)] rounded-r mt-3">
+									<span class="text-[10px] uppercase tracking-widest text-[#22c55e]">📰 Pitch — Schwerin ist Geil (Werbung)</span>
+									<p class="text-sm text-[var(--color-text-primary)] mt-1 whitespace-pre-wrap leading-relaxed">{lead.kiAnspracheSig}</p>
 								</div>
 							{/if}
 						</div>

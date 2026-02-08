@@ -44,6 +44,7 @@ export interface Lead {
 	kiChancen?: string;
 	kiWettbewerb?: string;
 	kiAnsprache?: string;
+	kiAnspracheSig?: string;
 	kiScore?: number;
 	kiSegment?: string;
 	// Website Content
