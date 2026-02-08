@@ -1,0 +1,71 @@
+@import 'tailwindcss';
+
+@theme {
+	/* Surface */
+	--color-surface-900: #0a0a0b;
+	--color-surface-800: #111113;
+	--color-surface-700: #1a1a1d;
+	--color-surface-600: #242428;
+	--color-surface-500: #2e2e33;
+	--color-surface-400: #3a3a40;
+	--color-surface-300: #52525a;
+	--color-surface-200: #71717a;
+	--color-surface-100: #a1a1aa;
+
+	/* Text */
+	--color-text-primary: #fafafa;
+	--color-text-secondary: #a1a1aa;
+	--color-text-muted: #71717a;
+
+	/* Heatmap: Cold → Warm → Hot */
+	--color-score-0: #1e3a5f;
+	--color-score-20: #2563eb;
+	--color-score-40: #6b7280;
+	--color-score-60: #d97706;
+	--color-score-80: #dc2626;
+	--color-score-100: #ef4444;
+
+	/* Segments */
+	--color-hot: #ef4444;
+	--color-warm: #f59e0b;
+	--color-cold: #3b82f6;
+	--color-disqualified: #6b7280;
+
+	/* Status */
+	--color-success: #22c55e;
+	--color-warning: #f59e0b;
+	--color-error: #ef4444;
+	--color-info: #3b82f6;
+
+	/* Accent */
+	--color-accent: #f59e0b;
+
+	/* Spacing */
+	--space-xs: 0.25rem;
+	--space-sm: 0.5rem;
+	--space-md: 1rem;
+	--space-lg: 1.5rem;
+	--space-xl: 2rem;
+	--space-2xl: 3rem;
+
+	/* Shadows */
+	--shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+	--shadow-md: 0 4px 6px rgba(0,0,0,0.4);
+	--shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
+
+	/* Typography */
+	--font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+	--font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+html {
+	background: var(--color-surface-900);
+	color: var(--color-text-primary);
+	font-family: var(--font-sans);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-surface-800); }
+::-webkit-scrollbar-thumb { background: var(--color-surface-500); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-surface-400); }
