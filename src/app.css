@@ -25,11 +25,11 @@
 	--color-score-80: #84cc16;
 	--color-score-100: #22c55e;
 
-	/* Segments — vivid signal colors */
-	--color-hot: #ff4757;
-	--color-warm: #ffa502;
-	--color-cold: #3b82f6;
-	--color-disqualified: #5c6068;
+	/* Segments — grün=gut, rot=schlecht */
+	--color-hot: #22c55e;
+	--color-warm: #eab308;
+	--color-cold: #f97316;
+	--color-disqualified: #ef4444;
 
 	/* Status */
 	--color-success: #2ed573;
