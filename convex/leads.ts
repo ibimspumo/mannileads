@@ -108,8 +108,21 @@ export const bulkCreate = mutation({
     leads: v.array(v.object(leadFields)),
   },
   handler: async (ctx, args) => {
+    // Alle existierenden Leads laden für Duplikat-Check
+    const existing = await ctx.db.query("leads").collect();
+    const existingKeys = new Set(
+      existing.map((l) => `${l.firma.toLowerCase().trim()}|${l.plz}|${l.website.toLowerCase().trim()}`)
+    );
+
     const ids = [];
+    let skipped = 0;
     for (const lead of args.leads) {
+      const key = `${lead.firma.toLowerCase().trim()}|${lead.plz}|${lead.website.toLowerCase().trim()}`;
+      if (existingKeys.has(key)) {
+        skipped++;
+        continue;
+      }
+      existingKeys.add(key); // Auch innerhalb des Batches deduplizieren
       const id = await ctx.db.insert("leads", lead);
       ids.push(id);
     }
