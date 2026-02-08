@@ -56,7 +56,7 @@
 						<a href={item.href}
 							class="px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200
 								{$page.url.pathname === item.href
-									? 'bg-[var(--color-accent)] bg-opacity-15 text-[var(--color-accent)] shadow-[inset_0_0_0_1px_rgba(255,165,2,0.2)]'
+									? 'bg-[var(--color-accent)] text-[var(--color-surface-900)] font-semibold shadow-[inset_0_0_0_1px_rgba(255,165,2,0.3)]'
 									: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-700)]'}"
 						>
 							{item.label}
@@ -84,7 +84,7 @@
 				<a href={item.href}
 					class="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all
 						{$page.url.pathname === item.href
-							? 'bg-[var(--color-accent)] bg-opacity-15 text-[var(--color-accent)]'
+							? 'bg-[var(--color-accent)] text-[var(--color-surface-900)] font-semibold'
 							: 'text-[var(--color-text-secondary)]'}"
 				>
 					{item.label}

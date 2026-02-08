@@ -48,6 +48,8 @@ PLZ_ORT_MAP = {
 
 CONVEX_URL = "https://energetic-civet-402.convex.cloud"
 CONVEX_API_KEY = "ml_scraper_2026_xR9kT4mQ"
+
+STATE_FILE = Path(__file__).parent / "scraper_state.json"
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 RATE_LIMIT_SECONDS = 1.1  # etwas über 1s für Sicherheit
 
@@ -59,6 +61,51 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 log = logging.getLogger("scraper")
+
+# ---- State-Tracking ----
+
+def load_state() -> dict:
+    """Lädt den Scraper-State (welche PLZ×Branche schon abgearbeitet)."""
+    if STATE_FILE.exists():
+        try:
+            return json.loads(STATE_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            log.warning("State-Datei beschädigt, starte frisch")
+    return {
+        "completed": {},   # {"19053": ["Friseur", "Restaurant", ...]}
+        "scraped_urls": [], # Alle bisher gescrapten URLs
+        "stats": {
+            "total_leads": 0,
+            "total_searches": 0,
+            "last_run": None,
+        }
+    }
+
+
+def save_state(state: dict):
+    """Speichert den Scraper-State."""
+    state["stats"]["last_run"] = datetime.now().isoformat()
+    STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2))
+
+
+def mark_completed(state: dict, plz: str, branche: str):
+    """Markiert eine PLZ×Branche-Kombi als abgearbeitet."""
+    if plz not in state["completed"]:
+        state["completed"][plz] = []
+    if branche not in state["completed"][plz]:
+        state["completed"][plz].append(branche)
+
+
+def is_completed(state: dict, plz: str, branche: str) -> bool:
+    """Prüft ob eine PLZ×Branche-Kombi schon abgearbeitet ist."""
+    return branche in state["completed"].get(plz, [])
+
+
+def add_scraped_url(state: dict, url: str):
+    """Merkt sich eine gescrapte URL."""
+    if url not in state["scraped_urls"]:
+        state["scraped_urls"].append(url)
+
 
 # ---- Brave Search API Key laden ----
 
@@ -416,66 +463,114 @@ def enrich_lead(lead: dict) -> dict:
 
 # ---- Hauptlogik ----
 
-def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False, output_file: Optional[str] = None):
+def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False, output_file: Optional[str] = None, reset_state: bool = False):
     """Hauptfunktion: Sucht und sammelt Leads."""
     api_key = load_brave_key()
     
+    # State laden
+    state = load_state()
+    if reset_state:
+        state = {"completed": {}, "scraped_urls": [], "stats": {"total_leads": 0, "total_searches": 0, "last_run": None}}
+        log.info("State zurückgesetzt")
+    
     total_combinations = len(plz_list) * len(branchen)
-    log.info(f"Start: {len(plz_list)} PLZ × {len(branchen)} Branchen = {total_combinations} Suchen")
+    
+    # Bereits erledigte zählen
+    skipped = sum(1 for plz in plz_list for branche in branchen if is_completed(state, plz, branche))
+    remaining = total_combinations - skipped
+    
+    log.info(f"Start: {len(plz_list)} PLZ × {len(branchen)} Branchen = {total_combinations} Kombinationen")
+    if skipped > 0:
+        log.info(f"  Überspringe {skipped} bereits abgearbeitete (State-File)")
+        log.info(f"  Noch {remaining} offen")
+    
+    if remaining == 0:
+        log.info("Alles schon abgearbeitet! (--reset-state zum Zurücksetzen)")
+        return []
     
     all_leads: List[dict] = []
     seen: set = set()  # Duplikat-Check: (firma_lower, plz)
+    # Bereits gescrapte URLs aus State übernehmen
+    seen_urls: set = set(state.get("scraped_urls", []))
     last_request_time = 0.0
+    search_count = 0
     
-    for plz in plz_list:
-        for branche in branchen:
-            query = f"{branche} {plz} {PLZ_ORT_MAP.get(plz, '')}"
-            log.info(f"Suche: {query}")
-            
-            # Rate Limiting
-            elapsed = time.time() - last_request_time
-            if elapsed < RATE_LIMIT_SECONDS:
-                time.sleep(RATE_LIMIT_SECONDS - elapsed)
-            
-            results = brave_search(query, api_key, count=10)
-            last_request_time = time.time()
-            
-            if not results:
-                log.warning(f"  Keine Ergebnisse für: {query}")
-                continue
-            
-            log.info(f"  {len(results)} Ergebnisse gefunden")
-            
-            for result in results:
-                url = result.get("url", "")
-                title = result.get("title", "")
-                
-                # Offensichtliche Nicht-Firmen filtern
-                skip_domains = ["wikipedia", "gelbeseiten", "yelp", "facebook", "instagram",
-                               "linkedin", "xing", "kununu", "indeed", "stepstone",
-                               "google.com/maps", "tripadvisor", "jameda", "doctolib"]
-                if any(d in url.lower() for d in skip_domains):
+    try:
+        for plz in plz_list:
+            for branche in branchen:
+                # Skip wenn schon abgearbeitet
+                if is_completed(state, plz, branche):
                     continue
                 
-                # Lead erstellen
-                lead = create_lead_from_result(result, branche, plz)
+                query = f"{branche} {plz} {PLZ_ORT_MAP.get(plz, '')}"
+                log.info(f"Suche [{search_count+1}/{remaining}]: {query}")
                 
-                # Duplikat-Check
-                dup_key = (lead["firma"].lower()[:50], plz)
-                if dup_key in seen:
-                    continue
-                seen.add(dup_key)
-                
-                # Website analysieren (mit Rate Limiting)
+                # Rate Limiting
                 elapsed = time.time() - last_request_time
-                if elapsed < 0.5:
-                    time.sleep(0.5 - elapsed)
+                if elapsed < RATE_LIMIT_SECONDS:
+                    time.sleep(RATE_LIMIT_SECONDS - elapsed)
                 
-                lead = enrich_lead(lead)
+                results = brave_search(query, api_key, count=10)
                 last_request_time = time.time()
+                search_count += 1
                 
-                all_leads.append(lead)
-                log.info(f"  ✓ {lead['firma']} — Score: {lead['score']}, Segment: {lead['segment']}")
+                if not results:
+                    log.warning(f"  Keine Ergebnisse für: {query}")
+                    mark_completed(state, plz, branche)
+                    continue
+                
+                log.info(f"  {len(results)} Ergebnisse gefunden")
+                
+                for result in results:
+                    url = result.get("url", "")
+                    title = result.get("title", "")
+                    
+                    # URL schon gescraped?
+                    if url in seen_urls:
+                        continue
+                    
+                    # Offensichtliche Nicht-Firmen filtern
+                    skip_domains = ["wikipedia", "gelbeseiten", "yelp", "facebook", "instagram",
+                                   "linkedin", "xing", "kununu", "indeed", "stepstone",
+                                   "google.com/maps", "tripadvisor", "jameda", "doctolib",
+                                   "planity.com", "treatwell.de", "11880.com"]
+                    if any(d in url.lower() for d in skip_domains):
+                        continue
+                    
+                    # Lead erstellen
+                    lead = create_lead_from_result(result, branche, plz)
+                    
+                    # Duplikat-Check
+                    dup_key = (lead["firma"].lower()[:50], plz)
+                    if dup_key in seen:
+                        continue
+                    seen.add(dup_key)
+                    
+                    # Website analysieren (mit Rate Limiting)
+                    elapsed = time.time() - last_request_time
+                    if elapsed < 0.5:
+                        time.sleep(0.5 - elapsed)
+                    
+                    lead = enrich_lead(lead)
+                    last_request_time = time.time()
+                    
+                    all_leads.append(lead)
+                    seen_urls.add(url)
+                    add_scraped_url(state, url)
+                    log.info(f"  ✓ {lead['firma']} — Score: {lead['score']}, Segment: {lead['segment']}")
+                
+                # Diese Kombi als erledigt markieren
+                mark_completed(state, plz, branche)
+                state["stats"]["total_searches"] += 1
+                
+                # State nach jeder Kombi speichern (Resume-Fähigkeit)
+                if not dry_run:
+                    save_state(state)
+    
+    except KeyboardInterrupt:
+        log.info("\n⚠️  Abgebrochen! State gespeichert — nächster Run macht hier weiter.")
+        save_state(state)
+        raise
     
     # Zusammenfassung
     log.info(f"\n{'='*50}")
@@ -498,15 +593,23 @@ def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
         success = push_to_convex(all_leads)
         if success:
             log.info("✓ Alle Leads in Convex geschrieben")
+            state["stats"]["total_leads"] += len(all_leads)
         else:
             log.error("✗ Fehler beim Schreiben in Convex")
-            # Fallback: Als JSON speichern
             fallback = f"scraper_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             with open(fallback, "w", encoding="utf-8") as f:
                 json.dump(all_leads, f, ensure_ascii=False, indent=2)
             log.info(f"Fallback gespeichert: {fallback}")
     elif dry_run:
         log.info("(Dry-Run — nicht in DB geschrieben)")
+    
+    # State final speichern
+    save_state(state)
+    
+    # State-Übersicht
+    completed_count = sum(len(v) for v in state["completed"].values())
+    log.info(f"\n📊 State: {completed_count} PLZ×Branche-Kombos abgearbeitet, {state['stats']['total_leads']} Leads gesamt")
+    log.info(f"   State-File: {STATE_FILE}")
     
     return all_leads
 
@@ -527,11 +630,30 @@ def main():
                        help="Ergebnisse zusätzlich als JSON speichern")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="Ausführliche Ausgabe")
+    parser.add_argument("--reset-state", action="store_true",
+                       help="State zurücksetzen (alles nochmal scrapen)")
+    parser.add_argument("--show-state", action="store_true",
+                       help="Aktuellen State anzeigen und beenden")
     
     args = parser.parse_args()
     
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+    
+    # State anzeigen
+    if args.show_state:
+        state = load_state()
+        completed_count = sum(len(v) for v in state["completed"].values())
+        print(f"\n📊 Scraper-State ({STATE_FILE})")
+        print(f"   Abgearbeitete Kombos: {completed_count}")
+        print(f"   Gescrapte URLs: {len(state.get('scraped_urls', []))}")
+        print(f"   Gesamt-Leads: {state['stats']['total_leads']}")
+        print(f"   Letzter Run: {state['stats']['last_run'] or 'nie'}")
+        if state["completed"]:
+            print(f"\n   PLZ-Fortschritt:")
+            for plz, branches in sorted(state["completed"].items()):
+                print(f"     {plz}: {len(branches)} Branchen ✓")
+        return
     
     plz_list = args.plz.split(",") if args.plz else DEFAULT_PLZ
     branchen = [b.strip() for b in args.branchen.split(",")] if args.branchen else DEFAULT_BRANCHEN
@@ -540,7 +662,7 @@ def main():
     log.info("ManniLeads Scraper v1.0")
     log.info("=" * 50)
     
-    leads = run_scraper(plz_list, branchen, dry_run=args.dry_run, output_file=args.output)
+    leads = run_scraper(plz_list, branchen, dry_run=args.dry_run, output_file=args.output, reset_state=args.reset_state)
     
     log.info(f"\nFertig! {len(leads)} Leads verarbeitet.")
 
