@@ -18,12 +18,12 @@
 	--color-text-muted: #5c6068;
 
 	/* Heatmap: Cold → Warm → Hot (instrument-grade) */
-	--color-score-0: #1a3654;
-	--color-score-20: #2563eb;
-	--color-score-40: #737882;
-	--color-score-60: #e08a00;
-	--color-score-80: #d63031;
-	--color-score-100: #ff4757;
+	--color-score-0: #ef4444;
+	--color-score-20: #f97316;
+	--color-score-40: #eab308;
+	--color-score-60: #eab308;
+	--color-score-80: #84cc16;
+	--color-score-100: #22c55e;
 
 	/* Segments — vivid signal colors */
 	--color-hot: #ff4757;
