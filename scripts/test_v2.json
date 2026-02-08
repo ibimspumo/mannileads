@@ -1,0 +1,104 @@
+[
+  {
+    "firma": "Apotheke Grosser Dreesch, Anne Pingel e.K",
+    "website": "https://www.apotheke-grosser-dreesch.de/",
+    "branche": "Apotheke",
+    "groesse": "",
+    "plz": "19061",
+    "ort": "Schwerin",
+    "ansprechpartner": "Anne Pingel\n Telefon",
+    "position": "Inhaber",
+    "email": "willkommen@apotheke-grosser-dreesch.de",
+    "telefon": "0385/3 92 11 93",
+    "websiteQualitaet": 4,
+    "socialMedia": false,
+    "socialMediaLinks": "",
+    "googleBewertung": "",
+    "score": 66,
+    "kiZusammenfassung": "",
+    "segment": "WARM",
+    "segmentManuell": false,
+    "tags": [
+      "Apotheke"
+    ],
+    "status": "Neu",
+    "notizen": "Scraper v2. Snippet: \"Willkommen bei der Apotheke Großer Dreesch in 19061 Schwerin. Entdecken Sie erstklassige Gesundheitsversorgung, Medikamente, Naturheilkunde und Kosmetik. Unsere Experten stehen Ihnen für umfassende B",
+    "history": [
+      {
+        "timestamp": "2026-02-08T22:06:14.560733",
+        "aktion": "Erstellt",
+        "details": "Via Scraper v2 (PLZ 19061)"
+      }
+    ],
+    "erstelltAm": "2026-02-08T22:06:14.560733",
+    "bearbeitetAm": "2026-02-08T22:06:14.560733"
+  },
+  {
+    "firma": "Anne Pingel e. K",
+    "website": "https://apo-grosser-dreesch-schwerin.avie.de/",
+    "branche": "Apotheke",
+    "groesse": "",
+    "plz": "19061",
+    "ort": "Schwerin",
+    "ansprechpartner": "",
+    "position": "",
+    "email": "willkommen@apotheke-grosser-dreesch.de",
+    "telefon": "0385 3921193",
+    "websiteQualitaet": 4,
+    "socialMedia": false,
+    "socialMediaLinks": "",
+    "googleBewertung": "",
+    "score": 61,
+    "kiZusammenfassung": "",
+    "segment": "WARM",
+    "segmentManuell": false,
+    "tags": [
+      "Apotheke"
+    ],
+    "status": "Neu",
+    "notizen": "Scraper v2. Snippet: Apotheke Grosser Dreesch · Dreescher Markt 1 19061 Schwerin · Route planen → · Sprachen · Deutsch, Englisch, Spanisch, Russisch · Die geschulten Fachkräfte unserer Apotheke beraten Sie persönlich und ",
+    "history": [
+      {
+        "timestamp": "2026-02-08T22:06:15.893488",
+        "aktion": "Erstellt",
+        "details": "Via Scraper v2 (PLZ 19061)"
+      }
+    ],
+    "erstelltAm": "2026-02-08T22:06:15.893488",
+    "bearbeitetAm": "2026-02-08T22:06:15.893488"
+  },
+  {
+    "firma": "HAIR-COSMETIC-TEAM GmbH",
+    "website": "https://www.haircosmeticteam.de/hct-sieben-seen-center",
+    "branche": "Friseur",
+    "groesse": "",
+    "plz": "19061",
+    "ort": "Schwerin",
+    "ansprechpartner": "Kathleen Voth",
+    "position": "Geschäftsführer",
+    "email": "mail@haircosmeticteam.de",
+    "telefon": "0385 732537",
+    "websiteQualitaet": 4,
+    "socialMedia": true,
+    "socialMediaLinks": "{\"facebook\": \"https://www.facebook.com/Hair-Cosmetic-Team-179821222033778/\", \"instagram\": \"https://www.instagram.com/hair.cosmetic.team/\"}",
+    "googleBewertung": "",
+    "score": 76,
+    "kiZusammenfassung": "",
+    "segment": "HOT",
+    "segmentManuell": false,
+    "tags": [
+      "Friseur"
+    ],
+    "status": "Neu",
+    "notizen": "Scraper v2. Snippet: Wir verwenden in unserem Friseursalon professionelle Haarfarben, erstklassige Premium-Haarpflege bekannter Marken wie KÉRASTASE, ghd, WELLA und ALCINA. Unsere Männer pflegen wir mit AMERICAN CREW und ",
+    "history": [
+      {
+        "timestamp": "2026-02-08T22:06:20.318554",
+        "aktion": "Erstellt",
+        "details": "Via Scraper v2 (PLZ 19061)"
+      }
+    ],
+    "erstelltAm": "2026-02-08T22:06:20.318554",
+    "bearbeitetAm": "2026-02-08T22:06:20.318554"
+  }
+]
