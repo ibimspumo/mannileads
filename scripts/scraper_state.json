@@ -1,18 +1,45 @@
 {
   "completed": {
-    "19061": [
-      "Apotheke",
-      "Friseur"
+    "19053": [
+      "Friseur",
+      "Restaurant",
+      "Autowerkstatt"
     ]
   },
   "scraped_urls": [
-    "https://www.apotheke-grosser-dreesch.de/",
-    "https://apo-grosser-dreesch-schwerin.avie.de/",
-    "https://www.haircosmeticteam.de/hct-sieben-seen-center"
+    "https://www.klier.de/salons/details/schwerin/0603",
+    "https://www.ryf.de/salon/schwerin/",
+    "https://www.haircosmeticteam.de/",
+    "https://ortmann-christ.de/",
+    "http://www.madcut.eu/",
+    "https://www.gourmetfabrik.de/",
+    "https://www.bistrolabouche.de/",
+    "https://schweriner-schloss-restaurant.de/",
+    "https://schwerin.bolerobar.de/",
+    "https://www.brinkamas.de/",
+    "https://www.go-saleto.de/",
+    "https://www.car-service-sorg.de/",
+    "https://www.autoservice-hs.com/",
+    "https://www.suedmaster.de/"
+  ],
+  "known_emails": [
+    "[email protected]",
+    "kontakt@ryf.de",
+    "mail@haircosmeticteam.de",
+    "info@ortmann-christ.de",
+    "info@madcut.eu",
+    "info@gourmetfabrik.de",
+    "info@bistrolabouche.de",
+    "info@schweriner-schloss-restaurant.de",
+    "schwerin@bolero.bar",
+    "restaurant@brinkamas.de",
+    "info@go-saleto.de",
+    "info@autoservice-hs.com",
+    "info@suedmaster.de"
   ],
   "stats": {
-    "total_leads": 3,
-    "total_searches": 2,
-    "last_run": "2026-02-08T22:11:58.896469"
+    "total_leads": 14,
+    "total_searches": 3,
+    "last_run": "2026-02-08T22:26:46.947601"
   }
 }

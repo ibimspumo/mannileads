@@ -22,12 +22,23 @@ export default defineSchema({
     googleBewertung: v.string(),
     // Website-Content (für KI-Analyse)
     websiteText: v.optional(v.string()),
-    // Analyse
+    // Analyse (Scraper)
     score: v.number(),
     kiZusammenfassung: v.string(),
     segment: v.union(v.literal("HOT"), v.literal("WARM"), v.literal("COLD"), v.literal("DISQUALIFIED")),
     segmentManuell: v.boolean(),
     tags: v.array(v.string()),
+    // KI-Analyse (Gemini)
+    kiAnalysiert: v.optional(v.boolean()),
+    kiAnalysiertAm: v.optional(v.string()),
+    kiZielgruppe: v.optional(v.string()),        // Wer sind deren Kunden?
+    kiOnlineAuftritt: v.optional(v.string()),     // Bewertung des Online-Auftritts
+    kiSchwaechen: v.optional(v.string()),          // Wo hapert's? (= unser Ansatzpunkt)
+    kiChancen: v.optional(v.string()),             // Konkrete Chancen für AgentZ
+    kiWettbewerb: v.optional(v.string()),          // Wettbewerbssituation
+    kiAnsprache: v.optional(v.string()),           // Vorgeschlagener Pitch/Ansprache
+    kiScore: v.optional(v.number()),               // KI-Score 0-100 (überschreibt ggf. Scraper-Score)
+    kiSegment: v.optional(v.string()),             // KI-Segment-Empfehlung
     // Status
     status: v.union(
       v.literal("Neu"),

@@ -36,7 +36,8 @@
 		{ key: 'ort', label: 'Ort', w: 'w-28 hidden lg:table-cell' },
 		{ key: 'segment', label: 'Segment', w: 'w-28' },
 		{ key: 'status', label: 'Status', w: 'w-32 hidden sm:table-cell' },
-		{ key: 'ansprechpartner', label: 'Kontakt', w: 'w-28 hidden xl:table-cell' }
+		{ key: 'ansprechpartner', label: 'Kontakt', w: 'w-28 hidden xl:table-cell' },
+		{ key: 'kiScore', label: 'KI', w: 'w-16 hidden xl:table-cell' }
 	];
 </script>
 
@@ -90,10 +91,20 @@
 						</select>
 					</td>
 					<td class="px-3 py-2.5 text-[var(--color-text-muted)] text-[10px] hidden xl:table-cell">{lead.ansprechpartner || '—'}</td>
+					<td class="px-3 py-2.5 hidden xl:table-cell">
+						{#if lead.kiScore != null}
+							<span class="text-[10px] font-mono font-bold text-[var(--color-accent)]">{lead.kiScore}</span>
+							{#if lead.kiSegment}
+								<span class="text-[9px] text-[var(--color-text-muted)] ml-1">{lead.kiSegment}</span>
+							{/if}
+						{:else}
+							<span class="text-[10px] text-[var(--color-text-muted)]">—</span>
+						{/if}
+					</td>
 				</tr>
 			{:else}
 				<tr>
-					<td colspan="7" class="px-4 py-16 text-center">
+					<td colspan="8" class="px-4 py-16 text-center">
 						<div class="text-4xl opacity-10 mb-3">☰</div>
 						<p class="text-sm text-[var(--color-text-muted)]">Keine Leads gefunden</p>
 						<p class="text-xs text-[var(--color-text-muted)] mt-1">Passe die Filter an oder erstelle einen neuen Lead</p>

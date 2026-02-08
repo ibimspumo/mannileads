@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
-ManniLeads Scraper v2 — Impressum-First-Ansatz
-Sucht lokale Unternehmen via Brave Search, extrahiert Kontaktdaten aus dem
-Impressum der Firmenwebsite und schreibt Ergebnisse in die Convex-Datenbank.
+ManniLeads Scraper v3 — Gemini-Powered
+Sucht lokale Unternehmen via Brave Search, holt Impressum + Startseite,
+lässt Gemini Flash alle Felder befüllen, schreibt in Convex.
 
-v2-Änderungen:
-- 67+ Skip-Domains (Portale/Verzeichnisse)
-- Impressum-First: Kein Impressum = kein Lead
-- Firmenname aus Impressum (nicht Brave-Titel)
-- HTML-Stripping & Entity-Decoding
-- Social-Media Share-Button-Filter
-- Duplikat-Erkennung per Root-Domain
-- Telefon/Email-Validierung mit Blacklists
+Flow pro Lead:
+1. Brave Search → URLs finden
+2. Hauptseite fetchen → 1000 Zeichen Text extrahieren
+3. Impressum-Seite finden + fetchen → Text extrahieren
+4. Beides an Gemini Flash → strukturiertes JSON mit allen Feldern
+5. Email-Dedup prüfen + in Convex schreiben
 """
 
 import argparse
@@ -25,7 +23,7 @@ import time
 import urllib.parse
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict
 
 try:
     import requests
@@ -49,26 +47,23 @@ PLZ_ORT_MAP = {
 }
 
 CONVEX_URL = "https://energetic-civet-402.convex.cloud"
-CONVEX_API_KEY = "ml_scraper_2026_xR9kT4mQ"
-
 STATE_FILE = Path(__file__).parent / "scraper_state.json"
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
-RATE_LIMIT_SECONDS = 1.1
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+GEMINI_MODEL = "google/gemini-2.0-flash-001"
+RATE_LIMIT_SECONDS = 1.1  # Brave Free Tier
 
-# ---- Skip-Domains (67 aus Audit + Original-Liste) ----
+# ---- Skip-Domains ----
 
 SKIP_DOMAINS = [
-    # Original-Liste
     "wikipedia", "gelbeseiten", "yelp", "facebook", "instagram",
     "linkedin", "xing", "kununu", "indeed", "stepstone",
     "google.com/maps", "tripadvisor", "jameda", "doctolib",
     "planity.com", "treatwell.de", "11880.com",
-    # Audit: Verzeichnisse & Branchenbücher
     "branchenbuch-schwerin.de", "dasoertliche.de", "bundes-telefonbuch.de",
     "meinestadt.de", "fmfm.de", "goyellow.de", "golocal.de", "kaufda.de",
     "handwerker-anzeiger.de", "11880-immobilienmakler.com", "dastelefonbuch.de",
     "weshoplocal.de", "misterwhat.de", "plzplz.de",
-    # Audit: Bewertungs- & Vergleichsportale
     "arzt-auskunft.de", "qimeda.de", "docinsider.de", "fachanwalt.de",
     "rechtecheck.de", "rechtsanwalt-regional.de", "sehen.de", "o-pal.de",
     "brillen-sehhilfen.de", "apotheken.de", "ihreapotheken.de",
@@ -79,47 +74,17 @@ SKIP_DOMAINS = [
     "bessere-handwerker.de", "my-hammer.de", "my-profi-maler.de",
     "maler-schwerin.de", "repareo.de", "fahrschulenmap.de", "fahrschulen.de",
     "handelsangebote.de",
-    # Audit: Buchungs-/Reiseportale
     "booking.com", "trivago.de", "hrs.de", "hotel.de",
     "hotel-hostel-unterkunft.de", "kongress.de", "fair-hotels.de",
     "cologne-in.de", "finde-unterkunft.de",
-    # Audit: Stadtportale
     "schwerin.de", "schweriner.de", "mecklenburg-schwerin.de",
     "wohinheuteschwerin.de",
-    # Audit: Überregionale Portale
     "immobilienscout24.de", "gymsider.com", "misterspex.de", "praktiker.de",
     "baeckerei-in-der-naehe.de", "brunch-lunch-dinner.de", "restaurantnet.de",
     "cybo.com", "wanderlog.com", "marcopolo.de", "bvbb.de",
     "volle-deckung.de", "nordkurier.de", "fleurop.de",
     "koepmarkt-schwerin.de", "schlosspark-center.de", "9gg.de", "m-vp.de",
-]
-
-# ---- Blacklists ----
-
-BLACKLIST_EMAILS = [
-    "support@apotheken.de", "support@kaufda.de", "info@eduxx.de",
-    "a.kirchner@ceramex-media.de", "info@elektriker.org", "info@maler.org",
-    "info@dachdecker.com", "info@auto-werkstatt.de", "info@trivago.com",
-    "info@fachanwalt.de", "service@rechtecheck.de", "kontakt@123media.site",
-    "adressredaktion@stiftung-gesundheit.de", "mp.datenschutz@ece.com",
-    "gutentag@buero-vip.de", "info@handwerker-anzeiger.de",
-    "werkstattmeister@repareo.de", "kundenberatung@fahrschulenmap.de",
-    "info@fahrschule.de", "support@schedulista.com",
-    "lizenzen@schluetersche.de", "info@sehen.de", "contact@shopfully.com",
-    "support@zones.sk", "info@koelnerbranchen.de", "info@auctores.de",
-    "service@gmbh-seibel.de", "info@ds-destinationsolutions.comst.com",
-    "bewerbung@firststop.de",
-]
-
-BLACKLIST_EMAIL_DOMAINS = [
-    "example.com", "example.org", "example.net",
-    "sentry.io", "wixpress.com", "webpack.js",
-]
-
-BLACKLIST_PHONES = [
-    "071125821", "03060989", "0158440", "0421258", "051060",
-    "0729659877394", "0042366", "079974582", "033388909006",
-    "0076559", "07141974", "008547008547",
+    "11880-steuerberater.com", "wuestenrot-immobilien.de",
 ]
 
 # ---- Logging ----
@@ -131,25 +96,59 @@ logging.basicConfig(
 )
 log = logging.getLogger("scraper")
 
-# ---- Utility Functions ----
+# ---- API Keys ----
+
+def load_brave_key() -> str:
+    key = os.environ.get("BRAVE_API_KEY", "").strip()
+    if key:
+        return key
+    p = Path(__file__).parent / ".brave_search_key"
+    if p.exists():
+        lines = [l.strip() for l in p.read_text().splitlines() if l.strip() and not l.startswith("#")]
+        if lines:
+            return lines[0]
+    log.error("Kein Brave Search API Key gefunden!")
+    sys.exit(1)
+
+
+def load_openrouter_key() -> str:
+    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if key:
+        return key
+    paths = [
+        Path(__file__).parent / ".openrouter_key",
+        Path.home() / ".openclaw" / "workspace" / "scripts" / ".openrouter_key",
+    ]
+    for p in paths:
+        if p.exists():
+            lines = [l.strip() for l in p.read_text().splitlines() if l.strip() and not l.startswith("#")]
+            if lines:
+                return lines[0]
+    log.error("Kein OpenRouter API Key gefunden!")
+    sys.exit(1)
+
+
+# ---- Utility ----
 
 def strip_html(text: str) -> str:
-    """Strip HTML tags and decode entities."""
     if not text:
         return ""
-    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<br\s*/?\s*>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</(?:p|div|h[1-6]|li|tr)>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', ' ', text)
     text = html.unescape(text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\n\s*\n+', '\n', text)
+    return text.strip()
 
 
 def get_root_domain(url: str) -> str:
-    """Extract root domain from URL (e.g. 'www.example.co.uk' -> 'example.co.uk')."""
     try:
         parsed = urllib.parse.urlparse(url if '://' in url else f'https://{url}')
         host = parsed.netloc or parsed.path.split('/')[0]
-        host = host.lower().split(':')[0]  # remove port
-        # Remove www.
+        host = host.lower().split(':')[0]
         if host.startswith('www.'):
             host = host[4:]
         return host
@@ -158,7 +157,6 @@ def get_root_domain(url: str) -> str:
 
 
 def is_skip_domain(url: str) -> bool:
-    """Check if URL belongs to a skip domain."""
     url_lower = url.lower()
     for d in SKIP_DOMAINS:
         if d in url_lower:
@@ -166,39 +164,23 @@ def is_skip_domain(url: str) -> bool:
     return False
 
 
-def is_valid_email(email: str) -> bool:
-    """Validate email: not blacklisted, not example.com, looks real."""
-    email_lower = email.lower().strip()
-    if email_lower in BLACKLIST_EMAILS:
-        return False
-    domain = email_lower.split('@')[-1] if '@' in email_lower else ''
-    if domain in BLACKLIST_EMAIL_DOMAINS:
-        return False
-    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email_lower):
-        return False
-    # Reject emails with weird patterns
-    if 'def.omfcthkdbwca' in email_lower:
-        return False
-    return True
+def extract_text(html_content: str, max_chars: int = 2000) -> str:
+    """Extract readable text from HTML."""
+    if not html_content:
+        return ""
+    text = re.sub(r'<(?:script|style|nav|noscript)[^>]*>.*?</(?:script|style|nav|noscript)>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<br\s*/?\s*>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</(?:p|div|h[1-6]|li|tr|section|article)>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = html.unescape(text)
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\n\s*\n+', '\n', text)
+    lines = [l.strip() for l in text.split('\n') if len(l.strip()) > 10]
+    text = '\n'.join(lines)
+    return text[:max_chars].strip()
 
 
-def is_valid_phone(phone: str) -> bool:
-    """Validate phone number."""
-    digits = re.sub(r'\D', '', phone)
-    # Too short
-    if len(digits) < 8:
-        return False
-    # All zeros or mostly zeros
-    if digits.replace('0', '') == '' or len(digits.replace('0', '')) <= 1:
-        return False
-    # Blacklisted portal numbers
-    for bl in BLACKLIST_PHONES:
-        if digits.startswith(bl.replace(' ', '')):
-            return False
-    return True
-
-
-# ---- State-Tracking ----
+# ---- State Tracking ----
 
 def load_state() -> dict:
     if STATE_FILE.exists():
@@ -206,7 +188,7 @@ def load_state() -> dict:
             return json.loads(STATE_FILE.read_text())
         except (json.JSONDecodeError, OSError):
             log.warning("State-Datei beschädigt, starte frisch")
-    return {"completed": {}, "scraped_urls": [], "stats": {"total_leads": 0, "total_searches": 0, "last_run": None}}
+    return {"completed": {}, "scraped_urls": [], "known_emails": [], "stats": {"total_leads": 0, "total_searches": 0, "last_run": None}}
 
 
 def save_state(state: dict):
@@ -225,25 +207,6 @@ def is_completed(state: dict, plz: str, branche: str) -> bool:
     return branche in state["completed"].get(plz, [])
 
 
-# ---- Brave Search API Key ----
-
-def load_brave_key() -> str:
-    key = os.environ.get("BRAVE_API_KEY", "").strip()
-    if key:
-        return key
-    key_paths = [
-        Path.home() / ".openclaw" / "workspace" / "scripts" / ".brave_search_key",
-        Path(__file__).parent.parent.parent / "scripts" / ".brave_search_key",
-    ]
-    for p in key_paths:
-        if p.exists():
-            lines = [l.strip() for l in p.read_text().splitlines() if l.strip() and not l.strip().startswith("#")]
-            if lines:
-                return lines[0]
-    log.error("Kein Brave Search API Key gefunden!")
-    sys.exit(1)
-
-
 # ---- Brave Search ----
 
 def brave_search(query: str, api_key: str, count: int = 10) -> List[dict]:
@@ -254,15 +217,15 @@ def brave_search(query: str, api_key: str, count: int = 10) -> List[dict]:
         resp.raise_for_status()
         return resp.json().get("web", {}).get("results", [])
     except requests.RequestException as e:
-        log.warning(f"Brave Search Fehler für '{query}': {e}")
+        log.warning(f"Brave Search Fehler: {e}")
         return []
 
 
-# ---- Website-Analyse ----
+# ---- Website Fetching ----
 
 def fetch_page(url: str, timeout: int = 10) -> Optional[str]:
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; ManniLeads/2.0)"}
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; ManniLeads/3.0)"}
         resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
         resp.raise_for_status()
         return resp.text
@@ -270,41 +233,21 @@ def fetch_page(url: str, timeout: int = 10) -> Optional[str]:
         return None
 
 
-def find_impressum_url(base_url: str, main_html: str) -> Optional[str]:
-    """Find impressum/kontakt link on the page."""
+def find_impressum_url(base_url: str, page_html: str) -> Optional[str]:
     patterns = [
         r'href=["\']([^"\']*impressum[^"\']*)["\']',
         r'href=["\']([^"\']*imprint[^"\']*)["\']',
     ]
     for pattern in patterns:
-        matches = re.findall(pattern, main_html, re.IGNORECASE)
+        matches = re.findall(pattern, page_html, re.IGNORECASE)
         for match in matches:
-            url = _resolve_url(base_url, match)
-            if url:
-                return url
+            resolved = resolve_url(base_url, match)
+            if resolved:
+                return resolved
     return None
 
 
-def find_kontakt_url(base_url: str, main_html: str) -> Optional[str]:
-    """Find kontakt/contact link."""
-    patterns = [
-        r'href=["\']([^"\']*kontakt[^"\']*)["\']',
-        r'href=["\']([^"\']*contact[^"\']*)["\']',
-    ]
-    for pattern in patterns:
-        matches = re.findall(pattern, main_html, re.IGNORECASE)
-        for match in matches:
-            # Skip mailto: links
-            if match.startswith('mailto:'):
-                continue
-            url = _resolve_url(base_url, match)
-            if url:
-                return url
-    return None
-
-
-def _resolve_url(base_url: str, href: str) -> Optional[str]:
-    """Resolve a relative URL to absolute."""
+def resolve_url(base_url: str, href: str) -> Optional[str]:
     if not href or href.startswith('#') or href.startswith('javascript:'):
         return None
     if href.startswith('http'):
@@ -312,322 +255,236 @@ def _resolve_url(base_url: str, href: str) -> Optional[str]:
     if href.startswith('/'):
         parsed = urllib.parse.urlparse(base_url)
         return f"{parsed.scheme}://{parsed.netloc}{href}"
-    # Relative
-    if '/' in base_url:
-        base = base_url.rsplit('/', 1)[0]
-        return f"{base}/{href}"
-    return None
+    base = base_url.rsplit('/', 1)[0]
+    return f"{base}/{href}"
 
 
-def extract_impressum_text(html_content: str) -> str:
-    """Extract text from an impressum page, cleaned."""
-    if not html_content:
-        return ""
-    # Remove script/style blocks
-    text = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    # Convert <br>, <p>, <div> to newlines
-    text = re.sub(r'<br\s*/?\s*>', '\n', text, flags=re.IGNORECASE)
-    text = re.sub(r'</(?:p|div|h[1-6]|li|tr)>', '\n', text, flags=re.IGNORECASE)
-    # Strip remaining tags
-    text = re.sub(r'<[^>]+>', ' ', text)
-    text = html.unescape(text)
-    # Normalize whitespace
-    text = re.sub(r'[ \t]+', ' ', text)
-    text = re.sub(r'\n\s*\n', '\n', text)
-    return text.strip()
-
-
-# ---- Impressum Data Extraction ----
-
-def extract_company_name(impressum_text: str) -> str:
-    """Extract company name from impressum text."""
-    # Pattern 1: Legal forms (GmbH, UG, AG, e.K., OHG, KG, GbR, e.V., etc.)
-    legal_forms = r'(?:GmbH(?:\s*&\s*Co\.?\s*KG)?|UG(?:\s*\(haftungsbeschränkt\))?|AG|e\.?\s*K\.?|OHG|KG|GbR|e\.?\s*V\.?|mbH|Inh\.)'
-    # Look for "Name + LegalForm"
-    pattern = rf'([A-ZÄÖÜ][^\n]{{2,60}}\s+{legal_forms})'
-    match = re.search(pattern, impressum_text)
-    if match:
-        return match.group(1).strip()
-
-    # Pattern 2: After label patterns
-    label_patterns = [
-        r'(?:Angaben\s+gemäß|Verantwortlich|Betreiber|Firma|Firmenname|Diensteanbieter|Anbieter)\s*(?:i\.?\s*S\.?\s*d\.?\s*§?\s*\d+\s*\w*)?\s*:?\s*\n?\s*(.+?)(?:\n|$)',
-    ]
-    for p in label_patterns:
-        match = re.search(p, impressum_text, re.IGNORECASE)
-        if match:
-            name = match.group(1).strip()
-            # Clean up: remove leading labels that might have been captured
-            name = re.sub(r'^(?:Firmenname|Firma|Inhaber(?:/in)?|Betreiber)\s*:?\s*', '', name, flags=re.IGNORECASE).strip()
-            if 3 < len(name) < 80 and not name.startswith('http'):
-                return name
-
-    # Pattern 3: Inhaber/inhaberin with name as company (solo businesses)
-    match = re.search(r'(?:Inh(?:aber(?:/in|in)?)?\.?)\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+(?:\s+e\.?\s*K\.?)?)', impressum_text)
-    if match:
-        return match.group(1).strip()
-
-    # Pattern 4: First substantial line after "Impressum" heading
-    imp_match = re.search(r'Impressum\s*\n(.+?)(?:\n|$)', impressum_text, re.IGNORECASE)
-    if imp_match:
-        candidate = imp_match.group(1).strip()
-        if 3 < len(candidate) < 80 and not any(x in candidate.lower() for x in ['angaben', 'gemäß', 'nach', 'verantwortlich', '§', 'impressum']):
-            return candidate
-
-    return ""
-
-
-def extract_contact_person(impressum_text: str) -> Tuple[str, str]:
-    """Extract contact person name and position from impressum."""
-    patterns = [
-        (r'Geschäftsführ(?:er|erin|ung)\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', "Geschäftsführer"),
-        (r'Inhaber(?:in)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', "Inhaber"),
-        (r'Vertretungsberechtigt(?:er?)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', "Geschäftsführer"),
-        (r'Verantwortlich(?:er?)?\s*(?:i\.?\s*S\.?\s*d\.?)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', "Verantwortlicher"),
-        (r'(?:Dr\.|Prof\.)\s*(?:med\.?\s*)?([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', ""),
-    ]
-    for pattern, position in patterns:
-        match = re.search(pattern, impressum_text)
-        if match:
-            name = match.group(1).strip()
-            # Clean: only take the name, stop at newlines or non-name words
-            name = name.split('\n')[0].strip()
-            # Remove trailing words that aren't names (Telefon, Email, Fax, etc.)
-            name = re.sub(r'\s+(?:Telefon|Tel|Fax|Email|E-Mail|Mobil|Handy|Adresse|Straße|Str).*$', '', name, flags=re.IGNORECASE).strip()
-            if 3 < len(name) < 50:
-                return name, position
-    return "", ""
-
-
-def extract_emails_from_text(text: str) -> List[str]:
-    """Extract valid emails from text."""
-    pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-    emails = re.findall(pattern, text)
-    valid = [e for e in emails if is_valid_email(e)]
-    # Deduplicate preserving order
-    seen = set()
-    result = []
-    for e in valid:
-        el = e.lower()
-        if el not in seen:
-            seen.add(el)
-            result.append(e)
-    return result[:3]
-
-
-def extract_phones_from_text(text: str) -> List[str]:
-    """Extract valid phone numbers from text."""
-    patterns = [
-        r'(?:Tel\.?|Telefon|Phone|Fon|Ruf)\s*:?\s*([+\d\s\-/()]{8,25})',
-        r'(?:Mobil|Handy|Funk)\s*:?\s*([+\d\s\-/()]{8,25})',
-        r'((?:\+49|0)\s*\(?\d{2,5}\)?\s*[\d\s\-/]{4,15})',
-    ]
-    phones = []
-    for p in patterns:
-        for match in re.finditer(p, text, re.IGNORECASE):
-            phone = match.group(1).strip() if match.lastindex else match.group(0).strip()
-            # Clean trailing punctuation
-            phone = re.sub(r'[\-/\s]+$', '', phone).strip()
-            if is_valid_phone(phone):
-                phones.append(phone)
-    # Deduplicate
-    seen = set()
-    result = []
-    for p in phones:
-        digits = re.sub(r'\D', '', p)
-        if digits not in seen:
-            seen.add(digits)
-            result.append(p)
-    return result[:2]
-
-
-def extract_social_media(html_content: str, firm_domain: str) -> dict:
-    """Extract social media links, filtering share buttons and portal links."""
-    social = {}
-    patterns = {
-        "facebook": r'href=["\']([^"\']*facebook\.com/[^"\']+)["\']',
-        "instagram": r'href=["\']([^"\']*instagram\.com/[^"\']+)["\']',
-        "linkedin": r'href=["\']([^"\']*linkedin\.com/[^"\']+)["\']',
-    }
-    for platform, pattern in patterns.items():
-        for match in re.finditer(pattern, html_content, re.IGNORECASE):
-            url = match.group(1)
-            # Skip share buttons
-            if '/sharer/' in url or '/share?' in url or 'share.php' in url:
-                continue
-            # Skip if it's a generic/portal link (very short path or just /page/)
-            social[platform] = url
-            break  # Take first valid one per platform
-    return social
-
-
-# ---- Impressum-First Analysis ----
-
-def analyze_website(url: str) -> Optional[dict]:
+def collect_website_data(url: str) -> Optional[Dict[str, str]]:
     """
-    Analyze a website with Impressum-First approach.
-    Returns None if no impressum found (= skip this lead).
-    Returns dict with extracted data if impressum exists.
+    Fetch main page + impressum page, return raw text data.
+    Returns None if site unreachable.
     """
-    log.info(f"  Analysiere: {url}")
+    log.info(f"  Fetche: {url}")
     main_html = fetch_page(url)
     if not main_html:
-        log.debug(f"  → Seite nicht erreichbar")
+        log.info(f"  → Nicht erreichbar")
         return None
 
-    firm_domain = get_root_domain(url)
+    # Extract main page text (max 1000 chars)
+    main_text = extract_text(main_html, max_chars=1000)
 
-    # Step 1: Find Impressum
-    impressum_html = None
+    # Find and fetch impressum
+    impressum_text = ""
     impressum_url = find_impressum_url(url, main_html)
-
     if impressum_url:
         time.sleep(0.3)
-        impressum_html = fetch_page(impressum_url)
+        imp_html = fetch_page(impressum_url)
+        if imp_html:
+            impressum_text = extract_text(imp_html, max_chars=2000)
 
-    # Check if main page IS the impressum (some single-pagers)
-    main_has_impressum = bool(re.search(
-        r'(?:Angaben\s+gemäß|Impressum|Verantwortlich\s+(?:i\.\s*S\.|gemäß)|Betreiber\s*:)',
-        main_html, re.IGNORECASE
-    ))
+    # If no separate impressum page, check if main page has impressum content
+    if not impressum_text:
+        if re.search(r'(?:Angaben\s+gemäß|Impressum|Verantwortlich\s+(?:i\.\s*S\.|gemäß))', main_html, re.IGNORECASE):
+            impressum_text = extract_text(main_html, max_chars=2000)
 
-    if not impressum_html and not main_has_impressum:
-        # Try kontakt page as fallback
-        kontakt_url = find_kontakt_url(url, main_html)
-        if kontakt_url:
-            time.sleep(0.3)
-            kontakt_html = fetch_page(kontakt_url)
-            if kontakt_html and re.search(r'(?:Angaben|Impressum|Verantwortlich|Inhaber|Geschäftsführer)', kontakt_html, re.IGNORECASE):
-                impressum_html = kontakt_html
-
-    if not impressum_html and not main_has_impressum:
-        log.info(f"  → Kein Impressum gefunden, überspringe")
+    if not impressum_text:
+        log.info(f"  → Kein Impressum gefunden")
         return None
 
-    # Step 2: Extract data from impressum
-    imp_text = extract_impressum_text(impressum_html or main_html)
-
-    # Also try extracting from main page for emails/phones if impressum didn't have them
-    main_text = extract_impressum_text(main_html) if main_html else ""
-
-    # Company name from impressum
-    firma = extract_company_name(imp_text)
-    if not firma and main_has_impressum:
-        firma = extract_company_name(main_text)
-
-    # Contact person
-    ansprechpartner, position = extract_contact_person(imp_text)
-    if not ansprechpartner:
-        ansprechpartner, position = extract_contact_person(main_text)
-
-    # Emails from impressum first, then main page, then kontakt
-    emails = extract_emails_from_text(imp_text)
-    if not emails:
-        emails = extract_emails_from_text(main_text)
-    if not emails:
-        # Try kontakt page
-        kontakt_url = find_kontakt_url(url, main_html)
-        if kontakt_url:
-            time.sleep(0.3)
-            kontakt_html = fetch_page(kontakt_url)
-            if kontakt_html:
-                emails = extract_emails_from_text(extract_impressum_text(kontakt_html))
-
-    # Phones from impressum first, then main page
-    phones = extract_phones_from_text(imp_text)
-    if not phones:
-        phones = extract_phones_from_text(main_text)
-
-    # Social media from main page
-    social = extract_social_media(main_html, firm_domain)
-
-    # Website quality
-    quality = assess_website_quality(url, main_html)
-
-    # Extract visible text for LLM analysis
-    website_text = extract_visible_text(main_html, max_chars=1000)
+    # Extract social media links (raw, for Gemini to parse)
+    social_links = []
+    for platform in ['facebook.com', 'instagram.com', 'linkedin.com', 'tiktok.com', 'youtube.com']:
+        matches = re.findall(rf'href=["\']([^"\']*{re.escape(platform)}[^"\']*)["\']', main_html, re.IGNORECASE)
+        for m in matches:
+            if '/sharer/' not in m and '/share?' not in m and 'share.php' not in m:
+                social_links.append(m)
+                break
 
     return {
-        "firma": firma,
-        "email": emails[0] if emails else "",
-        "telefon": phones[0] if phones else "",
-        "ansprechpartner": ansprechpartner,
-        "position": position,
-        "social": social,
-        "websiteQualitaet": quality,
-        "websiteText": website_text,
+        "url": url,
+        "main_text": main_text,
+        "impressum_text": impressum_text,
+        "social_links": social_links,
+        "has_https": url.startswith("https"),
+        "has_viewport": 'viewport' in main_html.lower(),
     }
 
 
-def extract_visible_text(html_content: str, max_chars: int = 1000) -> str:
-    """Extract visible text content from HTML for LLM analysis."""
-    if not html_content:
-        return ""
-    # Remove script, style, nav, header, footer blocks
-    text = re.sub(r'<(?:script|style|nav|header|footer|noscript)[^>]*>.*?</(?:script|style|nav|header|footer|noscript)>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
-    # Convert block elements to newlines
-    text = re.sub(r'<br\s*/?\s*>', '\n', text, flags=re.IGNORECASE)
-    text = re.sub(r'</(?:p|div|h[1-6]|li|tr|section|article)>', '\n', text, flags=re.IGNORECASE)
-    # Strip all remaining tags
-    text = re.sub(r'<[^>]+>', ' ', text)
-    text = html.unescape(text)
-    # Normalize whitespace
-    text = re.sub(r'[ \t]+', ' ', text)
-    text = re.sub(r'\n\s*\n+', '\n', text)
-    # Remove very short lines (menus, buttons)
-    lines = [l.strip() for l in text.split('\n') if len(l.strip()) > 20]
-    text = '\n'.join(lines)
-    return text[:max_chars].strip()
+# ---- Gemini Analysis ----
+
+GEMINI_PROMPT = """Du bist ein Datenextraktions-Experte. Analysiere die folgenden Website-Daten eines lokalen Unternehmens und extrahiere strukturierte Informationen.
+
+WEBSITE: {url}
+BRANCHE (gesucht): {branche}
+PLZ: {plz}
+ORT: {ort}
+
+=== STARTSEITE (Auszug) ===
+{main_text}
+
+=== IMPRESSUM ===
+{impressum_text}
+
+=== SOCIAL MEDIA LINKS ===
+{social_links}
+
+---
+
+Extrahiere folgende Felder als JSON. Wenn ein Feld nicht ermittelbar ist, setze einen leeren String "".
+WICHTIG: 
+- "firma" = der ECHTE Firmenname aus dem Impressum (NICHT "Impressum", "Datenschutz", "§5 TMG" oder ähnliche Überschriften!)
+- "email" = geschäftliche Kontakt-Email (NICHT info@portal.de oder support@plattform.de)
+- "telefon" = Telefonnummer mit Vorwahl
+- "ansprechpartner" = Name des Inhabers/Geschäftsführers
+- "position" = Rolle (z.B. "Geschäftsführer", "Inhaber", "Zahnarzt")
+- "kiZusammenfassung" = 1-2 Sätze was die Firma macht
+- "kiZielgruppe" = Wer sind deren Kunden?
+- "kiOnlineAuftritt" = Kurzbewertung der Website (1-2 Sätze: modern/veraltet, mobil-optimiert, Inhalte)
+- "kiSchwaechen" = Schwächen im Online-Auftritt (wo könnten wir als Social-Media-Agentur helfen?)
+- "kiChancen" = Konkrete Chancen für eine Social-Media-Agentur (Video, Reels, Ads, etc.)
+- "kiAnsprache" = Ein konkreter Satz, wie man diese Firma ansprechen könnte (Pitch)
+- "istEchteFirma" = true wenn es ein echtes lokales Unternehmen ist, false wenn es ein Portal/Verzeichnis/überregionale Kette ist
+- "kiScore" = Bewertung 0-100 wie gut dieser Lead für eine Social-Media-Agentur ist (höher = besser)
+
+Antworte NUR mit validem JSON, keine Erklärungen:
+{{
+  "firma": "",
+  "email": "",
+  "telefon": "",
+  "ansprechpartner": "",
+  "position": "",
+  "kiZusammenfassung": "",
+  "kiZielgruppe": "",
+  "kiOnlineAuftritt": "",
+  "kiSchwaechen": "",
+  "kiChancen": "",
+  "kiAnsprache": "",
+  "istEchteFirma": true,
+  "kiScore": 50
+}}"""
 
 
-def assess_website_quality(url: str, html_content: Optional[str]) -> int:
-    if not html_content:
-        return 1
-    score = 1
-    if url.startswith("https"):
-        score += 1
-    if re.search(r'impressum|imprint', html_content, re.IGNORECASE):
-        score += 1
-    if re.search(r'facebook\.com|instagram\.com|linkedin\.com', html_content, re.IGNORECASE):
-        score += 0.5
-    if 'viewport' in html_content.lower():
-        score += 0.5
-    return min(int(round(score)), 5)
+def analyze_with_gemini(website_data: dict, branche: str, plz: str, ort: str, api_key: str) -> Optional[dict]:
+    """Send website data to Gemini Flash and get structured lead data back."""
+    prompt = GEMINI_PROMPT.format(
+        url=website_data["url"],
+        branche=branche,
+        plz=plz,
+        ort=ort,
+        main_text=website_data["main_text"][:1000],
+        impressum_text=website_data["impressum_text"][:2000],
+        social_links="\n".join(website_data.get("social_links", [])) or "(keine gefunden)",
+    )
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": GEMINI_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+        "max_tokens": 800,
+    }
+
+    try:
+        resp = requests.post(OPENROUTER_URL, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        content = resp.json()["choices"][0]["message"]["content"]
+
+        # Parse JSON from response (handle markdown code blocks)
+        content = content.strip()
+        if content.startswith("```"):
+            content = re.sub(r'^```(?:json)?\s*', '', content)
+            content = re.sub(r'\s*```$', '', content)
+
+        data = json.loads(content)
+        return data
+
+    except (requests.RequestException, json.JSONDecodeError, KeyError, IndexError) as e:
+        log.warning(f"  Gemini-Fehler: {e}")
+        return None
 
 
-def calculate_score(lead: dict) -> int:
-    score = 30
-    score += lead.get("websiteQualitaet", 1) * 4
-    if lead.get("email"):
-        score += 10
-    if lead.get("telefon"):
-        score += 5
-    if lead.get("ansprechpartner"):
-        score += 5
-    if lead.get("socialMedia"):
-        score += 10
-    bewertung = lead.get("googleBewertung", "")
-    if bewertung:
+# ---- Lead Building ----
+
+def build_lead(gemini_data: dict, website_data: dict, branche: str, plz: str, ort: str, snippet: str) -> dict:
+    """Build a Convex-ready lead from Gemini output + website metadata."""
+    now = datetime.now().isoformat()
+
+    # Score: use Gemini's score, adjust for data completeness
+    ki_score = gemini_data.get("kiScore", 50)
+    if isinstance(ki_score, str):
         try:
-            rating = float(bewertung.split("/")[0].replace(",", "."))
-            if rating >= 4.0:
-                score += 10
-            elif rating >= 3.0:
-                score += 5
-        except (ValueError, IndexError):
-            pass
-    return min(max(score, 0), 100)
+            ki_score = int(ki_score)
+        except ValueError:
+            ki_score = 50
+    ki_score = max(0, min(100, ki_score))
 
+    # Segment from score
+    if ki_score >= 70:
+        segment = "HOT"
+    elif ki_score >= 50:
+        segment = "WARM"
+    elif ki_score >= 30:
+        segment = "COLD"
+    else:
+        segment = "DISQUALIFIED"
 
-def determine_segment(score: int) -> str:
-    if score >= 70:
-        return "HOT"
-    elif score >= 50:
-        return "WARM"
-    elif score >= 30:
-        return "COLD"
-    return "DISQUALIFIED"
+    social_links = website_data.get("social_links", [])
+
+    # Website quality
+    quality = 1
+    if website_data.get("has_https"):
+        quality += 1
+    if website_data.get("has_viewport"):
+        quality += 1
+    if social_links:
+        quality += 1
+    if gemini_data.get("email"):
+        quality += 1
+    quality = min(quality, 5)
+
+    return {
+        "firma": (gemini_data.get("firma") or "").strip()[:100],
+        "website": website_data["url"],
+        "branche": branche,
+        "groesse": "",
+        "plz": plz,
+        "ort": ort,
+        "ansprechpartner": (gemini_data.get("ansprechpartner") or "").strip(),
+        "position": (gemini_data.get("position") or "").strip(),
+        "email": (gemini_data.get("email") or "").strip().lower(),
+        "telefon": (gemini_data.get("telefon") or "").strip(),
+        "websiteQualitaet": quality,
+        "socialMedia": bool(social_links),
+        "socialMediaLinks": json.dumps(dict(zip(
+            [s.split('.com')[0].split('/')[-1] for s in social_links],
+            social_links
+        ))) if social_links else "",
+        "googleBewertung": "",
+        "websiteText": website_data.get("main_text", "")[:500],
+        "score": ki_score,
+        "kiZusammenfassung": (gemini_data.get("kiZusammenfassung") or "").strip(),
+        "segment": segment,
+        "segmentManuell": False,
+        "tags": [branche],
+        "status": "Neu",
+        "kiAnalysiert": True,
+        "kiAnalysiertAm": now,
+        "kiZielgruppe": (gemini_data.get("kiZielgruppe") or "").strip(),
+        "kiOnlineAuftritt": (gemini_data.get("kiOnlineAuftritt") or "").strip(),
+        "kiSchwaechen": (gemini_data.get("kiSchwaechen") or "").strip(),
+        "kiChancen": (gemini_data.get("kiChancen") or "").strip(),
+        "kiWettbewerb": "",
+        "kiAnsprache": (gemini_data.get("kiAnsprache") or "").strip(),
+        "kiScore": ki_score,
+        "kiSegment": segment,
+        "notizen": f"Scraper v3 (Gemini). Snippet: {strip_html(snippet)[:200]}",
+        "history": [{"timestamp": now, "aktion": "Erstellt", "details": f"Scraper v3 + Gemini Flash (PLZ {plz})"}],
+        "erstelltAm": now,
+        "bearbeitetAm": now,
+    }
 
 
 # ---- Convex API ----
@@ -638,119 +495,52 @@ def push_to_convex(leads: List[dict]) -> bool:
     url = f"{CONVEX_URL}/api/mutation"
     headers = {"Content-Type": "application/json"}
     try:
-        batch_size = 20
-        for i in range(0, len(leads), batch_size):
-            batch = leads[i:i + batch_size]
-            payload = {"path": "leads:bulkCreate", "args": {"leads": batch}}
-            resp = requests.post(url, json=payload, headers=headers, timeout=30)
-            resp.raise_for_status()
-            result = resp.json()
-            if result.get("status") == "success":
-                ids = result.get("value", [])
-                log.info(f"  Batch {i//batch_size + 1}: {len(ids)} Leads geschrieben")
-            else:
-                log.warning(f"  Batch {i//batch_size + 1}: Antwort: {result}")
-        return True
+        payload = {"path": "leads:bulkCreate", "args": {"leads": leads}}
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        result = resp.json()
+        if result.get("status") == "success":
+            ids = result.get("value", [])
+            log.info(f"  → {len(ids)} Leads in Convex geschrieben (Dedup: {len(leads) - len(ids)} übersprungen)")
+            return True
+        else:
+            log.warning(f"  Convex-Antwort: {result}")
+            return False
     except requests.RequestException as e:
         log.error(f"Convex API Fehler: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-            log.error(f"  Response: {e.response.text[:500]}")
         return False
-
-
-# ---- Lead-Erstellung ----
-
-def create_lead(result: dict, branche: str, plz: str, website_data: dict) -> dict:
-    """Create a lead from Brave result + website analysis data."""
-    url = result.get("url", "")
-    snippet = strip_html(result.get("description", ""))
-    brave_title = strip_html(result.get("title", ""))
-    ort = PLZ_ORT_MAP.get(plz, "")
-
-    # Firma: prefer impressum, fallback to cleaned Brave title
-    firma = website_data.get("firma", "").strip()
-    # Clean up any remaining label prefixes
-    firma = re.sub(r'^(?:Firmenname|Firma|Inhaber(?:/in)?|Betreiber|Diensteanbieter|Anbieter|Verantwortlich(?:er?)?|Angaben\s+gemäß[^:]*)\s*:?\s*', '', firma, flags=re.IGNORECASE).strip()
-    # Remove trailing address/contact info that got captured
-    firma = firma.split('\n')[0].strip()
-    firma = re.sub(r'\s+(?:Telefon|Tel|Straße|Str\.|Adresse|PLZ|Postfach|Fax).*$', '', firma, flags=re.IGNORECASE).strip()
-    if not firma:
-        # Fallback: clean Brave title
-        firma = brave_title.split(" - ")[0].split(" | ")[0].split(" – ")[0].strip()
-    if len(firma) > 100:
-        firma = firma[:100]
-
-    # Google rating from snippet
-    google_rating = ""
-    rating_match = re.search(r'(\d[,.]?\d?)\s*/\s*5|(\d[,.]?\d?)\s*Sterne', snippet)
-    if rating_match:
-        google_rating = (rating_match.group(1) or rating_match.group(2)) + "/5"
-
-    now = datetime.now().isoformat()
-    social = website_data.get("social", {})
-
-    lead = {
-        "firma": firma,
-        "website": url,
-        "branche": branche,
-        "groesse": "",
-        "plz": plz,
-        "ort": ort,
-        "ansprechpartner": website_data.get("ansprechpartner", ""),
-        "position": website_data.get("position", ""),
-        "email": website_data.get("email", ""),
-        "telefon": website_data.get("telefon", ""),
-        "websiteQualitaet": website_data.get("websiteQualitaet", 1),
-        "socialMedia": bool(social),
-        "socialMediaLinks": json.dumps(social) if social else "",
-        "googleBewertung": google_rating,
-        "score": 0,
-        "kiZusammenfassung": "",
-        "segment": "COLD",
-        "segmentManuell": False,
-        "tags": [branche],
-        "status": "Neu",
-        "websiteText": website_data.get("websiteText", ""),
-        "notizen": f"Scraper v2. Snippet: {snippet[:200]}",
-        "history": [{"timestamp": now, "aktion": "Erstellt", "details": f"Via Scraper v2 (PLZ {plz})"}],
-        "erstelltAm": now,
-        "bearbeitetAm": now,
-    }
-
-    lead["score"] = calculate_score(lead)
-    lead["segment"] = determine_segment(lead["score"])
-    return lead
 
 
 # ---- Hauptlogik ----
 
 def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
                 output_file: Optional[str] = None, reset_state: bool = False):
-    api_key = load_brave_key()
+    brave_key = load_brave_key()
+    openrouter_key = load_openrouter_key()
     state = load_state()
+
     if reset_state:
-        state = {"completed": {}, "scraped_urls": [], "stats": {"total_leads": 0, "total_searches": 0, "last_run": None}}
+        state = {"completed": {}, "scraped_urls": [], "known_emails": [], "stats": {"total_leads": 0, "total_searches": 0, "last_run": None}}
         log.info("State zurückgesetzt")
 
-    total_combinations = len(plz_list) * len(branchen)
+    total_combos = len(plz_list) * len(branchen)
     skipped = sum(1 for plz in plz_list for branche in branchen if is_completed(state, plz, branche))
-    remaining = total_combinations - skipped
+    remaining = total_combos - skipped
 
-    log.info(f"Start: {len(plz_list)} PLZ × {len(branchen)} Branchen = {total_combinations} Kombinationen")
+    log.info(f"Start: {len(plz_list)} PLZ × {len(branchen)} Branchen = {total_combos} Kombinationen")
     if skipped > 0:
         log.info(f"  Überspringe {skipped} bereits abgearbeitete")
     if remaining == 0:
         log.info("Alles schon abgearbeitet! (--reset-state zum Zurücksetzen)")
-        return []
+        return
 
-    all_leads: List[dict] = []
-    seen_domains: set = set()  # Duplikat-Check per root domain
-    seen_urls: set = set(state.get("scraped_urls", []))
-    last_request_time = 0.0
+    seen_domains = set()
+    seen_urls = set(state.get("scraped_urls", []))
+    known_emails = set(state.get("known_emails", []))
+    all_leads = []
+    last_brave_time = 0.0
     search_count = 0
-    skipped_no_impressum = 0
-    skipped_portal = 0
-    skipped_duplicate = 0
+    stats = {"portal_skip": 0, "no_impressum": 0, "duplicate_domain": 0, "duplicate_email": 0, "not_real_firm": 0, "gemini_fail": 0}
 
     try:
         for plz in plz_list:
@@ -758,71 +548,100 @@ def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
                 if is_completed(state, plz, branche):
                     continue
 
-                query = f"{branche} {plz} {PLZ_ORT_MAP.get(plz, '')}"
-                log.info(f"Suche [{search_count+1}/{remaining}]: {query}")
+                ort = PLZ_ORT_MAP.get(plz, "")
+                query = f"{branche} {plz} {ort}"
+                log.info(f"\nSuche [{search_count+1}/{remaining}]: {query}")
 
-                elapsed = time.time() - last_request_time
+                # Brave rate limit
+                elapsed = time.time() - last_brave_time
                 if elapsed < RATE_LIMIT_SECONDS:
                     time.sleep(RATE_LIMIT_SECONDS - elapsed)
 
-                results = brave_search(query, api_key, count=10)
-                last_request_time = time.time()
+                results = brave_search(query, brave_key, count=10)
+                last_brave_time = time.time()
                 search_count += 1
 
                 if not results:
-                    log.warning(f"  Keine Ergebnisse für: {query}")
+                    log.warning(f"  Keine Ergebnisse")
                     mark_completed(state, plz, branche)
                     continue
 
-                log.info(f"  {len(results)} Ergebnisse gefunden")
+                log.info(f"  {len(results)} Ergebnisse")
+                combo_leads = []
 
-                combo_leads: List[dict] = []
                 for result in results:
                     url = result.get("url", "")
+                    snippet = result.get("description", "")
 
-                    # Already scraped?
                     if url in seen_urls:
                         continue
 
-                    # Skip portal domains
                     if is_skip_domain(url):
-                        skipped_portal += 1
-                        log.debug(f"  ✗ Portal übersprungen: {url}")
+                        stats["portal_skip"] += 1
                         continue
 
-                    # Duplicate check per root domain
                     root = get_root_domain(url)
                     if root in seen_domains:
-                        skipped_duplicate += 1
-                        log.debug(f"  ✗ Duplikat (gleiche Domain): {root}")
+                        stats["duplicate_domain"] += 1
                         continue
 
-                    # Rate limiting for website fetch
-                    elapsed = time.time() - last_request_time
-                    if elapsed < 0.5:
-                        time.sleep(0.5 - elapsed)
-
-                    # Impressum-First: analyze website
-                    website_data = analyze_website(url)
-                    last_request_time = time.time()
-
+                    # Step 1: Fetch website data
+                    time.sleep(0.4)
+                    website_data = collect_website_data(url)
                     if website_data is None:
-                        skipped_no_impressum += 1
+                        stats["no_impressum"] += 1
+                        seen_urls.add(url)
                         continue
 
-                    # Create lead
-                    lead = create_lead(result, branche, plz, website_data)
+                    # Step 2: Gemini analysis
+                    time.sleep(0.3)
+                    gemini_data = analyze_with_gemini(website_data, branche, plz, ort, openrouter_key)
+                    if gemini_data is None:
+                        stats["gemini_fail"] += 1
+                        seen_urls.add(url)
+                        continue
+
+                    # Check if Gemini says it's a real firm
+                    if not gemini_data.get("istEchteFirma", True):
+                        log.info(f"  ✗ Kein echtes Unternehmen laut Gemini: {url}")
+                        stats["not_real_firm"] += 1
+                        seen_urls.add(url)
+                        seen_domains.add(root)
+                        continue
+
+                    # Check firma name
+                    firma = (gemini_data.get("firma") or "").strip()
+                    if not firma or len(firma) < 3:
+                        log.info(f"  ✗ Kein Firmenname extrahiert: {url}")
+                        seen_urls.add(url)
+                        continue
+
+                    # Email dedup
+                    email = (gemini_data.get("email") or "").strip().lower()
+                    if email and email in known_emails:
+                        log.info(f"  ✗ Email-Duplikat ({email}): {firma}")
+                        stats["duplicate_email"] += 1
+                        seen_urls.add(url)
+                        seen_domains.add(root)
+                        continue
+
+                    # Build lead
+                    lead = build_lead(gemini_data, website_data, branche, plz, ort, snippet)
                     combo_leads.append(lead)
                     seen_domains.add(root)
                     seen_urls.add(url)
+                    if email:
+                        known_emails.add(email)
+                        state.setdefault("known_emails", []).append(email)
                     state.setdefault("scraped_urls", []).append(url)
-                    log.info(f"  ✓ {lead['firma']} — Score: {lead['score']}, Segment: {lead['segment']}, Email: {'✓' if lead['email'] else '✗'}, Tel: {'✓' if lead['telefon'] else '✗'}")
 
-                # Push to Convex
+                    seg_icon = {"HOT": "🔥", "WARM": "🟡", "COLD": "🔵", "DISQUALIFIED": "⚫"}.get(lead["segment"], "")
+                    log.info(f"  ✓ {seg_icon} {firma} — Score: {lead['score']}, Email: {'✓' if email else '✗'}, Tel: {'✓' if lead['telefon'] else '✗'}, Kontakt: {lead['ansprechpartner'] or '✗'}")
+
+                # Push combo to Convex
                 if combo_leads and not dry_run:
-                    success = push_to_convex(combo_leads)
-                    if success:
-                        state["stats"]["total_leads"] += len(combo_leads)
+                    push_to_convex(combo_leads)
+                    state["stats"]["total_leads"] += len(combo_leads)
 
                 all_leads.extend(combo_leads)
                 mark_completed(state, plz, branche)
@@ -832,15 +651,17 @@ def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
     except KeyboardInterrupt:
         log.info("\n⚠️  Abgebrochen! State gespeichert.")
         save_state(state)
-        raise
 
     # Summary
-    log.info(f"\n{'='*50}")
-    log.info(f"Ergebnis: {len(all_leads)} Leads gesammelt")
-    log.info(f"  Portale übersprungen: {skipped_portal}")
-    log.info(f"  Kein Impressum: {skipped_no_impressum}")
-    log.info(f"  Duplikate: {skipped_duplicate}")
-
+    log.info(f"\n{'='*60}")
+    log.info(f"ERGEBNIS: {len(all_leads)} Leads gesammelt")
+    log.info(f"  Portale übersprungen: {stats['portal_skip']}")
+    log.info(f"  Kein Impressum: {stats['no_impressum']}")
+    log.info(f"  Duplikat (Domain): {stats['duplicate_domain']}")
+    log.info(f"  Duplikat (Email): {stats['duplicate_email']}")
+    log.info(f"  Kein echtes Unternehmen: {stats['not_real_firm']}")
+    log.info(f"  Gemini-Fehler: {stats['gemini_fail']}")
+    log.info(f"---")
     with_email = sum(1 for l in all_leads if l.get("email"))
     with_phone = sum(1 for l in all_leads if l.get("telefon"))
     with_contact = sum(1 for l in all_leads if l.get("ansprechpartner"))
@@ -851,35 +672,30 @@ def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
     segments = {}
     for lead in all_leads:
         segments[lead["segment"]] = segments.get(lead["segment"], 0) + 1
-    for seg, count in sorted(segments.items()):
-        log.info(f"  {seg}: {count}")
+    for seg in ["HOT", "WARM", "COLD", "DISQUALIFIED"]:
+        if seg in segments:
+            log.info(f"  {seg}: {segments[seg]}")
 
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(all_leads, f, ensure_ascii=False, indent=2)
-        log.info(f"JSON gespeichert: {output_file}")
-
-    if not dry_run and all_leads:
-        log.info("(Leads bereits während des Scrapings in Convex geschrieben)")
-    elif dry_run:
-        log.info("(Dry-Run — nicht in DB geschrieben)")
+        log.info(f"\nJSON gespeichert: {output_file}")
 
     save_state(state)
-    return all_leads
+    log.info(f"Fertig! {len(all_leads)} Leads verarbeitet.")
 
 
 # ---- CLI ----
 
 def main():
-    parser = argparse.ArgumentParser(description="ManniLeads Scraper v2 — Impressum-First")
-    parser.add_argument("--plz", type=str, default=None)
-    parser.add_argument("--branchen", type=str, default=None)
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--output", "-o", type=str, default=None)
+    parser = argparse.ArgumentParser(description="ManniLeads Scraper v3 — Gemini-Powered")
+    parser.add_argument("--plz", type=str, default=None, help="Kommagetrennte PLZ-Liste")
+    parser.add_argument("--branchen", type=str, default=None, help="Kommagetrennte Branchen")
+    parser.add_argument("--dry-run", action="store_true", help="Nicht in Convex schreiben")
+    parser.add_argument("--output", "-o", type=str, default=None, help="JSON-Ausgabedatei")
     parser.add_argument("--verbose", "-v", action="store_true")
-    parser.add_argument("--reset-state", action="store_true")
-    parser.add_argument("--show-state", action="store_true")
-
+    parser.add_argument("--reset-state", action="store_true", help="State zurücksetzen")
+    parser.add_argument("--show-state", action="store_true", help="State anzeigen")
     args = parser.parse_args()
 
     if args.verbose:
@@ -891,6 +707,7 @@ def main():
         print(f"\n📊 Scraper-State ({STATE_FILE})")
         print(f"   Abgearbeitete Kombos: {completed_count}")
         print(f"   Gescrapte URLs: {len(state.get('scraped_urls', []))}")
+        print(f"   Bekannte Emails: {len(state.get('known_emails', []))}")
         print(f"   Gesamt-Leads: {state['stats']['total_leads']}")
         print(f"   Letzter Run: {state['stats']['last_run'] or 'nie'}")
         return
@@ -898,13 +715,12 @@ def main():
     plz_list = args.plz.split(",") if args.plz else DEFAULT_PLZ
     branchen = [b.strip() for b in args.branchen.split(",")] if args.branchen else DEFAULT_BRANCHEN
 
-    log.info("=" * 50)
-    log.info("ManniLeads Scraper v2.0 — Impressum-First")
-    log.info("=" * 50)
+    log.info("=" * 60)
+    log.info("ManniLeads Scraper v3.0 — Gemini-Powered")
+    log.info("=" * 60)
 
-    leads = run_scraper(plz_list, branchen, dry_run=args.dry_run,
-                       output_file=args.output, reset_state=args.reset_state)
-    log.info(f"\nFertig! {len(leads)} Leads verarbeitet.")
+    run_scraper(plz_list, branchen, dry_run=args.dry_run,
+                output_file=args.output, reset_state=args.reset_state)
 
 
 if __name__ == "__main__":

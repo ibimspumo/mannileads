@@ -35,6 +35,19 @@ export interface Lead {
 	// Timestamps
 	erstelltAm: string;
 	bearbeitetAm: string;
+	// KI-Analyse (Gemini)
+	kiAnalysiert?: boolean;
+	kiAnalysiertAm?: string;
+	kiZielgruppe?: string;
+	kiOnlineAuftritt?: string;
+	kiSchwaechen?: string;
+	kiChancen?: string;
+	kiWettbewerb?: string;
+	kiAnsprache?: string;
+	kiScore?: number;
+	kiSegment?: string;
+	// Website Content
+	websiteText?: string;
 }
 
 export interface HistoryEntry {

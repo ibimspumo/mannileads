@@ -37,6 +37,42 @@
 		return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 	}
 
+	const socialMediaPlatforms: Record<string, string> = {
+		facebook: '🔵 Facebook',
+		instagram: '📸 Instagram',
+		linkedin: '💼 LinkedIn',
+		twitter: '🐦 Twitter',
+		x: '🐦 X',
+		youtube: '▶️ YouTube',
+		tiktok: '🎵 TikTok',
+		xing: '🅧 Xing',
+		pinterest: '📌 Pinterest',
+	};
+
+	function parseSocialLinks(raw: string): Array<{platform: string; label: string; url: string}> {
+		if (!raw) return [];
+		try {
+			const parsed = JSON.parse(raw);
+			if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+				return Object.entries(parsed)
+					.filter(([, v]) => v)
+					.map(([k, v]) => ({
+						platform: k,
+						label: socialMediaPlatforms[k.toLowerCase()] ?? k,
+						url: v as string
+					}));
+			}
+		} catch { /* not JSON, try comma-separated */ }
+		// Fallback: comma-separated URLs or text
+		return raw.split(',').map(s => s.trim()).filter(Boolean).map(s => ({
+			platform: 'link',
+			label: s,
+			url: s.startsWith('http') ? s : '#'
+		}));
+	}
+
+	const socialLinks = $derived(lead ? parseSocialLinks(lead.socialMediaLinks) : []);
+
 	function timeAgo(iso: string): string {
 		const diff = Date.now() - new Date(iso).getTime();
 		const mins = Math.floor(diff / 60000);
@@ -145,13 +181,95 @@
 						</div>
 						<div><span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Google-Bewertung</span><br><span class="text-[var(--color-text-primary)] font-medium">{lead.googleBewertung || '—'}</span></div>
 						{#if lead.socialMediaLinks}
-							<div><span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Social Links</span><br><span class="text-[var(--color-text-secondary)] text-xs">{lead.socialMediaLinks}</span></div>
+							<div class="col-span-2">
+								<span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Social Links</span><br>
+								<div class="flex flex-wrap gap-2 mt-1">
+									{#each socialLinks as link}
+										{#if link.url.startsWith('http')}
+											<a href={link.url} target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--color-surface-600)] text-[var(--color-accent)] hover:bg-[var(--color-surface-500)] transition-colors">{link.label}</a>
+										{:else}
+											<span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--color-surface-600)] text-[var(--color-text-secondary)]">{link.label}</span>
+										{/if}
+									{/each}
+								</div>
+							</div>
 						{/if}
 					</div>
 				</div>
 
-				<!-- KI & Notizen -->
-				{#if lead.kiZusammenfassung || lead.notizen}
+				<!-- KI-Analyse -->
+				{#if lead.kiAnalysiert}
+					<div class="panel p-4">
+						<h3 class="panel-header" style="padding: 0; border: none; margin-bottom: 0.75rem;">🤖 KI-Analyse</h3>
+						<div class="space-y-4">
+							<!-- Score + Segment + Datum -->
+							<div class="flex items-center gap-3 flex-wrap">
+								{#if lead.kiScore != null}
+									<span class="text-xs font-mono font-bold px-2 py-1 rounded bg-[var(--color-surface-600)] text-[var(--color-accent)]">Score: {lead.kiScore}</span>
+								{/if}
+								{#if lead.kiSegment}
+									<span class="text-xs font-bold px-2 py-1 rounded bg-[var(--color-surface-600)] text-[var(--color-text-primary)]">{lead.kiSegment}</span>
+								{/if}
+								{#if lead.kiAnalysiertAm}
+									<span class="text-[10px] text-[var(--color-text-muted)] font-mono">Analysiert: {formatDate(lead.kiAnalysiertAm)}</span>
+								{/if}
+							</div>
+
+							<!-- Zusammenfassung -->
+							{#if lead.kiZusammenfassung}
+								<div>
+									<span class="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">Zusammenfassung</span>
+									<p class="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed mt-1">{lead.kiZusammenfassung}</p>
+								</div>
+							{/if}
+
+							<!-- Grid -->
+							<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+								{#if lead.kiZielgruppe}
+									<div>
+										<span class="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">Zielgruppe</span>
+										<p class="text-sm text-[var(--color-text-secondary)] mt-1 whitespace-pre-wrap">{lead.kiZielgruppe}</p>
+									</div>
+								{/if}
+								{#if lead.kiOnlineAuftritt}
+									<div>
+										<span class="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">Online-Auftritt</span>
+										<p class="text-sm text-[var(--color-text-secondary)] mt-1 whitespace-pre-wrap">{lead.kiOnlineAuftritt}</p>
+									</div>
+								{/if}
+								{#if lead.kiSchwaechen}
+									<div>
+										<span class="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">Schwächen</span>
+										<p class="text-sm text-[var(--color-text-secondary)] mt-1 whitespace-pre-wrap">{lead.kiSchwaechen}</p>
+									</div>
+								{/if}
+								{#if lead.kiChancen}
+									<div>
+										<span class="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">Chancen</span>
+										<p class="text-sm text-[var(--color-text-secondary)] mt-1 whitespace-pre-wrap">{lead.kiChancen}</p>
+									</div>
+								{/if}
+								{#if lead.kiWettbewerb}
+									<div class="md:col-span-2">
+										<span class="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">Wettbewerb</span>
+										<p class="text-sm text-[var(--color-text-secondary)] mt-1 whitespace-pre-wrap">{lead.kiWettbewerb}</p>
+									</div>
+								{/if}
+							</div>
+
+							<!-- Ansprache - hervorgehoben -->
+							{#if lead.kiAnsprache}
+								<div class="border-l-2 border-[var(--color-accent)] pl-4 py-2 bg-[var(--color-surface-700)] rounded-r">
+									<span class="text-[10px] uppercase tracking-widest text-[var(--color-accent)]">Ansprache / Pitch</span>
+									<p class="text-sm text-[var(--color-text-primary)] mt-1 whitespace-pre-wrap leading-relaxed">{lead.kiAnsprache}</p>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- KI-Zusammenfassung & Notizen (fallback wenn nicht kiAnalysiert) -->
+				{#if !lead.kiAnalysiert && (lead.kiZusammenfassung || lead.notizen)}
 					<div class="panel p-4 space-y-4">
 						{#if lead.kiZusammenfassung}
 							<div>
@@ -165,6 +283,14 @@
 								<p class="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed">{lead.notizen}</p>
 							</div>
 						{/if}
+					</div>
+				{/if}
+
+				<!-- Notizen (wenn kiAnalysiert, separat) -->
+				{#if lead.kiAnalysiert && lead.notizen}
+					<div class="panel p-4">
+						<h3 class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)] mb-2">Notizen</h3>
+						<p class="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed">{lead.notizen}</p>
 					</div>
 				{/if}
 			</div>

@@ -124,6 +124,42 @@
 		<Textarea label="Notizen" bind:value={notizen} rows={4} placeholder="Freitext..." />
 	</fieldset>
 
+	<!-- KI-Analyse (read-only) -->
+	{#if initial.kiAnalysiert}
+		<fieldset class="space-y-3 opacity-75">
+			<legend class="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider border-b border-[var(--color-surface-600)] pb-1 mb-2">🤖 KI-Analyse <span class="text-[10px] font-normal text-[var(--color-text-muted)]">(nur lesen)</span></legend>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+				{#if initial.kiScore != null}
+					<div><span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">KI-Score</span><br><span class="text-sm font-mono font-bold text-[var(--color-accent)]">{initial.kiScore}</span></div>
+				{/if}
+				{#if initial.kiSegment}
+					<div><span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">KI-Segment</span><br><span class="text-sm text-[var(--color-text-primary)]">{initial.kiSegment}</span></div>
+				{/if}
+				{#if initial.kiZielgruppe}
+					<div><span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Zielgruppe</span><br><span class="text-sm text-[var(--color-text-secondary)]">{initial.kiZielgruppe}</span></div>
+				{/if}
+				{#if initial.kiOnlineAuftritt}
+					<div><span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Online-Auftritt</span><br><span class="text-sm text-[var(--color-text-secondary)]">{initial.kiOnlineAuftritt}</span></div>
+				{/if}
+				{#if initial.kiSchwaechen}
+					<div><span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Schwächen</span><br><span class="text-sm text-[var(--color-text-secondary)]">{initial.kiSchwaechen}</span></div>
+				{/if}
+				{#if initial.kiChancen}
+					<div><span class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Chancen</span><br><span class="text-sm text-[var(--color-text-secondary)]">{initial.kiChancen}</span></div>
+				{/if}
+			</div>
+			{#if initial.kiAnsprache}
+				<div class="border-l-2 border-[var(--color-accent)] pl-3 py-1">
+					<span class="text-[10px] uppercase tracking-wider text-[var(--color-accent)]">Ansprache</span>
+					<p class="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap">{initial.kiAnsprache}</p>
+				</div>
+			{/if}
+			{#if initial.kiAnalysiertAm}
+				<p class="text-[10px] text-[var(--color-text-muted)] font-mono">Analysiert am: {new Date(initial.kiAnalysiertAm).toLocaleString('de-DE')}</p>
+			{/if}
+		</fieldset>
+	{/if}
+
 	<!-- Tags -->
 	<fieldset class="space-y-2">
 		<legend class="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider border-b border-[var(--color-surface-600)] pb-1 mb-2">Tags</legend>

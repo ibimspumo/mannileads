@@ -65,6 +65,17 @@ const leadFields = {
   segment: v.union(v.literal("HOT"), v.literal("WARM"), v.literal("COLD"), v.literal("DISQUALIFIED")),
   segmentManuell: v.boolean(),
   tags: v.array(v.string()),
+  // KI-Analyse (optional, wird von analyze.py gesetzt)
+  kiAnalysiert: v.optional(v.boolean()),
+  kiAnalysiertAm: v.optional(v.string()),
+  kiZielgruppe: v.optional(v.string()),
+  kiOnlineAuftritt: v.optional(v.string()),
+  kiSchwaechen: v.optional(v.string()),
+  kiChancen: v.optional(v.string()),
+  kiWettbewerb: v.optional(v.string()),
+  kiAnsprache: v.optional(v.string()),
+  kiScore: v.optional(v.number()),
+  kiSegment: v.optional(v.string()),
   status: v.union(
     v.literal("Neu"),
     v.literal("Kontaktiert"),
@@ -114,20 +125,43 @@ export const bulkCreate = mutation({
     const existingKeys = new Set(
       existing.map((l) => `${l.firma.toLowerCase().trim()}|${l.plz}|${l.website.toLowerCase().trim()}`)
     );
+    // Email-Dedup: jede Email darf nur einmal existieren
+    const existingEmails = new Set(
+      existing.filter((l) => l.email).map((l) => l.email.toLowerCase().trim())
+    );
 
     const ids = [];
     let skipped = 0;
     for (const lead of args.leads) {
+      // Check firma+plz+website
       const key = `${lead.firma.toLowerCase().trim()}|${lead.plz}|${lead.website.toLowerCase().trim()}`;
       if (existingKeys.has(key)) {
         skipped++;
         continue;
       }
-      existingKeys.add(key); // Auch innerhalb des Batches deduplizieren
+      // Check email uniqueness
+      const email = lead.email?.toLowerCase().trim();
+      if (email && existingEmails.has(email)) {
+        skipped++;
+        continue;
+      }
+      existingKeys.add(key);
+      if (email) existingEmails.add(email);
       const id = await ctx.db.insert("leads", lead);
       ids.push(id);
     }
     return ids;
+  },
+});
+
+export const clearAll = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("leads").collect();
+    for (const lead of all) {
+      await ctx.db.delete(lead._id);
+    }
+    return { deleted: all.length };
   },
 });
 
