@@ -381,18 +381,20 @@ def extract_company_name(impressum_text: str) -> str:
 def extract_contact_person(impressum_text: str) -> Tuple[str, str]:
     """Extract contact person name and position from impressum."""
     patterns = [
-        (r'Geschäftsführ(?:er|erin|ung)\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)', "Geschäftsführer"),
-        (r'Inhaber(?:in)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)', "Inhaber"),
-        (r'Vertretungsberechtigt(?:er?)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)', "Geschäftsführer"),
-        (r'Verantwortlich(?:er?)?\s*(?:i\.?\s*S\.?\s*d\.?)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)', "Verantwortlicher"),
-        (r'(?:Dr\.|Prof\.)\s*(?:med\.?\s*)?([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)', ""),
+        (r'Geschäftsführ(?:er|erin|ung)\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', "Geschäftsführer"),
+        (r'Inhaber(?:in)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', "Inhaber"),
+        (r'Vertretungsberechtigt(?:er?)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', "Geschäftsführer"),
+        (r'Verantwortlich(?:er?)?\s*(?:i\.?\s*S\.?\s*d\.?)?\s*:?\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', "Verantwortlicher"),
+        (r'(?:Dr\.|Prof\.)\s*(?:med\.?\s*)?([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){1,3})', ""),
     ]
     for pattern, position in patterns:
         match = re.search(pattern, impressum_text)
         if match:
             name = match.group(1).strip()
-            # Clean: remove trailing words that aren't part of the name
+            # Clean: only take the name, stop at newlines or non-name words
             name = name.split('\n')[0].strip()
+            # Remove trailing words that aren't names (Telefon, Email, Fax, etc.)
+            name = re.sub(r'\s+(?:Telefon|Tel|Fax|Email|E-Mail|Mobil|Handy|Adresse|Straße|Str).*$', '', name, flags=re.IGNORECASE).strip()
             if 3 < len(name) < 50:
                 return name, position
     return "", ""
@@ -543,6 +545,9 @@ def analyze_website(url: str) -> Optional[dict]:
     # Website quality
     quality = assess_website_quality(url, main_html)
 
+    # Extract visible text for LLM analysis
+    website_text = extract_visible_text(main_html, max_chars=1000)
+
     return {
         "firma": firma,
         "email": emails[0] if emails else "",
@@ -551,7 +556,29 @@ def analyze_website(url: str) -> Optional[dict]:
         "position": position,
         "social": social,
         "websiteQualitaet": quality,
+        "websiteText": website_text,
     }
+
+
+def extract_visible_text(html_content: str, max_chars: int = 1000) -> str:
+    """Extract visible text content from HTML for LLM analysis."""
+    if not html_content:
+        return ""
+    # Remove script, style, nav, header, footer blocks
+    text = re.sub(r'<(?:script|style|nav|header|footer|noscript)[^>]*>.*?</(?:script|style|nav|header|footer|noscript)>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+    # Convert block elements to newlines
+    text = re.sub(r'<br\s*/?\s*>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</(?:p|div|h[1-6]|li|tr|section|article)>', '\n', text, flags=re.IGNORECASE)
+    # Strip all remaining tags
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = html.unescape(text)
+    # Normalize whitespace
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\n\s*\n+', '\n', text)
+    # Remove very short lines (menus, buttons)
+    lines = [l.strip() for l in text.split('\n') if len(l.strip()) > 20]
+    text = '\n'.join(lines)
+    return text[:max_chars].strip()
 
 
 def assess_website_quality(url: str, html_content: Optional[str]) -> int:
@@ -643,7 +670,10 @@ def create_lead(result: dict, branche: str, plz: str, website_data: dict) -> dic
     # Firma: prefer impressum, fallback to cleaned Brave title
     firma = website_data.get("firma", "").strip()
     # Clean up any remaining label prefixes
-    firma = re.sub(r'^(?:Firmenname|Firma|Inhaber(?:/in)?|Betreiber|Inhaber/in)\s*:?\s*', '', firma, flags=re.IGNORECASE).strip()
+    firma = re.sub(r'^(?:Firmenname|Firma|Inhaber(?:/in)?|Betreiber|Diensteanbieter|Anbieter|Verantwortlich(?:er?)?|Angaben\s+gemäß[^:]*)\s*:?\s*', '', firma, flags=re.IGNORECASE).strip()
+    # Remove trailing address/contact info that got captured
+    firma = firma.split('\n')[0].strip()
+    firma = re.sub(r'\s+(?:Telefon|Tel|Straße|Str\.|Adresse|PLZ|Postfach|Fax).*$', '', firma, flags=re.IGNORECASE).strip()
     if not firma:
         # Fallback: clean Brave title
         firma = brave_title.split(" - ")[0].split(" | ")[0].split(" – ")[0].strip()
@@ -680,6 +710,7 @@ def create_lead(result: dict, branche: str, plz: str, website_data: dict) -> dic
         "segmentManuell": False,
         "tags": [branche],
         "status": "Neu",
+        "websiteText": website_data.get("websiteText", ""),
         "notizen": f"Scraper v2. Snippet: {snippet[:200]}",
         "history": [{"timestamp": now, "aktion": "Erstellt", "details": f"Via Scraper v2 (PLZ {plz})"}],
         "erstelltAm": now,

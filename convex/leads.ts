@@ -59,6 +59,7 @@ const leadFields = {
   socialMedia: v.boolean(),
   socialMediaLinks: v.string(),
   googleBewertung: v.string(),
+  websiteText: v.optional(v.string()),
   score: v.number(),
   kiZusammenfassung: v.string(),
   segment: v.union(v.literal("HOT"), v.literal("WARM"), v.literal("COLD"), v.literal("DISQUALIFIED")),

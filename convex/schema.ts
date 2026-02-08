@@ -20,6 +20,8 @@ export default defineSchema({
     socialMedia: v.boolean(),
     socialMediaLinks: v.string(),
     googleBewertung: v.string(),
+    // Website-Content (für KI-Analyse)
+    websiteText: v.optional(v.string()),
     // Analyse
     score: v.number(),
     kiZusammenfassung: v.string(),
