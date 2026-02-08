@@ -7,9 +7,15 @@
 	let password = $state('');
 	let error = $state('');
 
-	function handleLogin(e: SubmitEvent) {
+	let loading = $state(false);
+
+	async function handleLogin(e: SubmitEvent) {
 		e.preventDefault();
-		if (auth.login(password)) {
+		loading = true;
+		error = '';
+		const ok = await auth.login(password);
+		loading = false;
+		if (ok) {
 			goto('/');
 		} else {
 			error = 'Falsches Passwort';

@@ -2,7 +2,6 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
 const STORAGE_KEY = 'mannileads_auth';
-const PASSWORD = 'AgentZ2026!';
 
 function createAuthStore() {
 	const initial = browser ? localStorage.getItem(STORAGE_KEY) === 'true' : false;
@@ -10,13 +9,22 @@ function createAuthStore() {
 
 	return {
 		subscribe,
-		login(password: string): boolean {
-			if (password === PASSWORD) {
-				set(true);
-				if (browser) localStorage.setItem(STORAGE_KEY, 'true');
-				return true;
+		async login(password: string): Promise<boolean> {
+			try {
+				const res = await fetch('/api/auth', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ password })
+				});
+				if (res.ok) {
+					set(true);
+					if (browser) localStorage.setItem(STORAGE_KEY, 'true');
+					return true;
+				}
+				return false;
+			} catch {
+				return false;
 			}
-			return false;
 		},
 		logout() {
 			set(false);
