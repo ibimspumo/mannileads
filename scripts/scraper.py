@@ -35,20 +35,41 @@ except ImportError:
 
 DEFAULT_STADT = "Schwerin"
 DEFAULT_PLZ = ["19053", "19055", "19057", "19059", "19061", "19063"]
-DEFAULT_BRANCHEN = [
-    "Friseur", "Restaurant", "Autowerkstatt", "Zahnarzt", "Rechtsanwalt",
-    "Steuerberater", "Immobilienmakler", "Handwerker", "Elektriker",
-    "Maler", "Dachdecker", "Fitnessstudio", "Bäckerei", "Apotheke",
-    "Optiker", "Physiotherapie", "Hotel", "Café", "Blumenladen", "Fahrschule"
-]
 
-# Wird dynamisch befüllt über --stadt Flag
+# Branchen aus zentraler JSON laden (Single Source of Truth)
+_branchen_json = Path(__file__).parent.parent / "src" / "lib" / "data" / "branchen.json"
+def _load_branchen() -> tuple:
+    """Lade Branchen aus zentraler JSON. Returns (flat_list, branche_to_category_map)."""
+    try:
+        data = json.loads(_branchen_json.read_text())
+        flat = []
+        mapping = {}
+        for cat in data["categories"]:
+            for b in cat["branchen"]:
+                flat.append(b)
+                mapping[b] = cat["name"]
+        return flat, mapping
+    except Exception as e:
+        print(f"WARNUNG: Konnte branchen.json nicht laden: {e}")
+        return ["Restaurant", "Friseur", "Zahnarzt"], {}
+
+DEFAULT_BRANCHEN, BRANCHE_KATEGORIE_MAP = _load_branchen()
+
+# Wird dynamisch befüllt über --stadt Flag oder plz_config.json
 PLZ_ORT_MAP = {
     "19053": "Schwerin", "19055": "Schwerin", "19057": "Schwerin",
     "19059": "Schwerin", "19061": "Schwerin", "19063": "Schwerin",
 }
 
-CONVEX_URL = "https://energetic-civet-402.convex.cloud"
+# Load plz_config.json if exists (written by nachtschicht.py)
+_plz_config = Path(__file__).parent / "plz_config.json"
+if _plz_config.exists():
+    try:
+        PLZ_ORT_MAP.update(json.loads(_plz_config.read_text()))
+    except Exception:
+        pass
+
+CONVEX_URL = "https://robust-goat-806.convex.cloud"
 STATE_FILE = Path(__file__).parent / "scraper_state.json"
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -87,6 +108,16 @@ SKIP_DOMAINS = [
     "volle-deckung.de", "nordkurier.de", "fleurop.de",
     "koepmarkt-schwerin.de", "schlosspark-center.de", "9gg.de", "m-vp.de",
     "11880-steuerberater.com", "wuestenrot-immobilien.de",
+    "online-tischreservierung.de", "cafes-in-der-nahe.de", "nochoffen.de",
+    "finderr.de", "yellowmap.de", "onlineplan.info", "immosuchmaschine.de",
+    "anwaltsverzeichnis.de", "steuer-berater.de", "behoerdenverzeichnis.mv-serviceportal.de",
+    "steuerberater-tipps.de",
+    "fahrschule-online.de", "blume2000.de", "blumenversand-edelweiss.de",
+    "abvz.de", "deutschebiz.de",
+    # Nachtschicht 09.02.2026: weitere Portale entdeckt
+    "stadtbranchenbuch.com", "branchenbuch24.com", "branchenbuchdeutschland.de",
+    "coiffeur-24.de", "total-lokal.de", "exilon.de", "plusbranchenbuch.com",
+    "letitshine.de",
 ]
 
 # ---- Logging ----
@@ -360,13 +391,15 @@ STILREGELN für kiAnsprache und kiAnspracheSig:
 - KEIN "Bilder posten", KEIN "Instagram und Facebook" als Hauptfokus. TikTok und Kurzvideos sind der Kern!
 - "tags" = Array mit 2-5 passenden Tags zur Kategorisierung. Beispiele: "Einzelunternehmer", "Filiale/Kette", "Premium", "Budget", "Social-Media-aktiv", "Social-Media-schwach", "Website-modern", "Website-veraltet", "Gastronomie", "Gesundheit", "Handwerk", "Dienstleistung", "Einzelhandel", "B2B", "B2C". Wähle die passendsten.
 - "istEchteFirma" = true wenn es ein echtes lokales Unternehmen ist, false wenn es ein Portal/Verzeichnis/überregionale Kette ist
-- "kiScore" = Bewertung 0-100 wie gut dieser Lead für eine Social-Media-Agentur ist. SEI DIFFERENZIERT, nicht immer 85! Orientierung:
-  90-100: Perfekter Lead (lokales Unternehmen, B2C, keine Social-Media-Präsenz, hoher Bedarf an Sichtbarkeit)
-  70-89: Guter Lead (lokales Unternehmen mit Potenzial, etwas Social Media aber ausbaufähig)
-  50-69: Mittelmäßig (hat schon Social Media oder wenig Bedarf, z.B. Arztpraxen die nicht werben müssen)
-  30-49: Schwach (Filialen/Ketten die zentral gesteuert werden, sehr kleine Betriebe)
-  0-29: Ungeeignet (kein sinnvoller Ansatzpunkt für Social-Media-Agentur)
-- "kiScoreBegruendung" = 1-2 Sätze warum dieser Score vergeben wurde. Was spricht für/gegen diesen Lead?
+- "kiScore" = OBJEKTIVE Bewertung 0-100 wie wertvoll dieser Lead allgemein ist. NUTZE DIE VOLLE SKALA VON 0 BIS 100! Nicht immer zwischen 25-95 bleiben. Ein perfekter Lead bekommt 100, ein wertloser bekommt 0. Sei mutig und differenziert!
+  95-100: Exzellent (etabliertes Unternehmen, moderne Website, alle Kontaktdaten, Social Media aktiv, klar erfolgreich) — z.B. bekanntes Restaurant mit 500+ Google-Bewertungen, eigener Social Media, Ansprechpartner mit Email
+  80-94: Sehr gut (solide Webpräsenz, Kontaktdaten komplett, aktiv am Markt)
+  60-79: Gut (Unternehmen funktioniert, brauchbare Online-Präsenz, aber nicht herausragend)
+  40-59: Mittelmässig (existiert, aber schwache Online-Präsenz oder unvollständige Daten)
+  20-39: Schwach (kaum online sichtbar, wenig Infos, möglicherweise Filiale ohne lokale Entscheidungsgewalt)
+  1-19: Sehr schwach (fast keine verwertbaren Daten, unklar ob noch aktiv)
+  0: Wertlos (keine Kontaktdaten, kein Impressum, oder kein echtes Unternehmen)
+- "kiScoreBegruendung" = 1-2 Sätze warum dieser Score vergeben wurde. Objektive Einschätzung des Unternehmens.
 
 INFO zu schwerinistgeil.de (SIG):
 Schwerin ist Geil ist eine neue satirische Nachrichtenwebsite über Schwerin — wie "Der Postillon" aber lokal für Schwerin. Tägliche Satire-Artikel über lokale Themen, Stadtpolitik, Alltagsabsurditäten. Zielgruppe: Schweriner zwischen 20-50 Jahren.
@@ -521,13 +554,41 @@ def build_lead(gemini_data: dict, website_data: dict, branche: str, plz: str, or
 
 # ---- Convex API ----
 
+def push_coverage(plz: str, ort: str, branche: str, suchergebnisse: int, leads_gefunden: int, leads_gefiltert: int):
+    """Coverage-Eintrag nach Convex schreiben."""
+    kategorie = BRANCHE_KATEGORIE_MAP.get(branche, "Sonstiges")
+    url = f"{CONVEX_URL}/api/mutation"
+    payload = {
+        "path": "coverage:upsert",
+        "args": {
+            "plz": plz, "ort": ort, "branche": branche, "kategorie": kategorie,
+            "suchergebnisse": suchergebnisse, "leadsGefunden": leads_gefunden,
+            "leadsGefiltert": leads_gefiltert, "gescraptAm": datetime.now().isoformat(),
+        }
+    }
+    try:
+        resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+        resp.raise_for_status()
+    except Exception as e:
+        log.warning(f"  Coverage-Tracking Fehler: {e}")
+
+
 def push_to_convex(leads: List[dict]) -> bool:
     if not leads:
         return True
+    # Strip fields not in Convex schema
+    CONVEX_FIELDS = {
+        "ansprechpartner", "bearbeitetAm", "branche", "email", "erstelltAm",
+        "firma", "googleBewertung", "groesse", "history", "kiZusammenfassung",
+        "notizen", "ort", "plz", "position", "score", "segment", "segmentManuell",
+        "socialMedia", "socialMediaLinks", "status", "tags", "telefon", "website",
+        "websiteQualitaet",
+    }
+    clean_leads = [{k: v for k, v in lead.items() if k in CONVEX_FIELDS} for lead in leads]
     url = f"{CONVEX_URL}/api/mutation"
     headers = {"Content-Type": "application/json"}
     try:
-        payload = {"path": "leads:bulkCreate", "args": {"leads": leads}}
+        payload = {"path": "leads:bulkCreate", "args": {"leads": clean_leads}}
         resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         result = resp.json()
@@ -680,6 +741,13 @@ def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
                 if combo_leads and not dry_run:
                     push_to_convex(combo_leads)
                     state["stats"]["total_leads"] += len(combo_leads)
+
+                # Coverage-Tracking nach Convex schreiben
+                n_results = len(results) if results else 0
+                n_leads = len(combo_leads)
+                n_filtered = n_results - n_leads
+                if not dry_run:
+                    push_coverage(plz, ort, branche, n_results, n_leads, max(0, n_filtered))
 
                 all_leads.extend(combo_leads)
                 mark_completed(state, plz, branche)

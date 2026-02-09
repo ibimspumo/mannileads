@@ -1,0 +1,48 @@
+{
+  "categories": [
+    {
+      "name": "Gastronomie & Nachtleben",
+      "branchen": ["Restaurant", "Café", "Bäckerei", "Konditorei", "Imbiss", "Pizzeria", "Lieferservice", "Catering", "Bar", "Kneipe", "Eisdiele", "Fleischerei"]
+    },
+    {
+      "name": "Gesundheit & Wellness",
+      "branchen": ["Zahnarzt", "Arzt", "Augenarzt", "Hautarzt", "Orthopäde", "HNO-Arzt", "Kinderarzt", "Tierarzt", "Apotheke", "Physiotherapie", "Ergotherapie", "Logopädie", "Heilpraktiker", "Psychotherapeut", "Optiker", "Hörakustiker", "Fitnessstudio", "Yoga-Studio", "Kosmetikstudio", "Nagelstudio", "Massage", "Friseur", "Barbershop", "Tattoo-Studio", "Pflegedienst"]
+    },
+    {
+      "name": "Handwerk & Bau",
+      "branchen": ["Elektriker", "Maler", "Dachdecker", "Tischler", "Schreiner", "Klempner", "Sanitär Heizung", "Rohrreinigung", "Fliesenleger", "Maurer", "Zimmerer", "Schlosser", "Glaser", "Raumausstatter", "Bodenleger", "Garten- und Landschaftsbau", "Bauunternehmen", "Trockenbau", "Gebäudereinigung", "Schädlingsbekämpfung", "Schlüsseldienst"]
+    },
+    {
+      "name": "Auto & Mobilität",
+      "branchen": ["Autowerkstatt", "Autohaus", "Autolackierung", "Reifenservice", "Fahrschule", "Fahrradladen", "Autovermietung", "Abschleppdienst"]
+    },
+    {
+      "name": "Recht & Finanzen",
+      "branchen": ["Rechtsanwalt", "Steuerberater", "Notar", "Versicherungsmakler", "Finanzberater", "Immobilienmakler", "Hausverwaltung", "Inkasso"]
+    },
+    {
+      "name": "Bildung & Betreuung",
+      "branchen": ["Nachhilfe", "Sprachschule", "Musikschule", "Tanzschule", "Kita", "Tagesmutter", "Hundesalon", "Hundeschule"]
+    },
+    {
+      "name": "Einzelhandel",
+      "branchen": ["Blumenladen", "Buchhandlung", "Juwelier", "Brautmode", "Modegeschäft", "Schuhgeschäft", "Sportgeschäft", "Spielwarenladen", "Möbelhaus", "Küchenstudio", "Elektronikhandel", "Weinhandlung", "Reformhaus", "Bioladen", "Geschenkeladen", "Tierhandlung", "Baustoffhandel"]
+    },
+    {
+      "name": "Dienstleistungen",
+      "branchen": ["Fotograf", "Videoproduktion", "Werbeagentur", "Druckerei", "Umzugsunternehmen", "Entrümpelung", "Reinigungsservice", "Hausmeisterservice", "Sicherheitsdienst", "Detektei", "Übersetzungsbüro", "Copyshop", "Schneiderei"]
+    },
+    {
+      "name": "IT & Technik",
+      "branchen": ["IT-Service", "Webdesign", "Computer-Reparatur", "Handyreparatur", "Elektroinstallation", "Alarm- und Sicherheitstechnik"]
+    },
+    {
+      "name": "Tourismus & Freizeit",
+      "branchen": ["Hotel", "Pension", "Ferienwohnung", "Reisebüro", "Eventlocation", "Veranstaltungstechnik", "DJ"]
+    },
+    {
+      "name": "Bestattung & Sonstiges",
+      "branchen": ["Bestattungsinstitut", "Steinmetz", "Goldschmiede", "Uhrmacher", "Änderungsschneiderei", "Wäscherei", "Textilreinigung"]
+    }
+  ]
+}

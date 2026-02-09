@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as coverage from "../coverage.js";
 import type * as http from "../http.js";
 import type * as leads from "../leads.js";
 
@@ -18,6 +19,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  coverage: typeof coverage;
   http: typeof http;
   leads: typeof leads;
 }>;

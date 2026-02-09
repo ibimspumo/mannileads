@@ -4,7 +4,7 @@
 	import Textarea from '$lib/components/atoms/Textarea.svelte';
 	import Button from '$lib/components/atoms/Button.svelte';
 	import Tag from '$lib/components/atoms/Tag.svelte';
-	import { BRANCHEN, STATUSES, SEGMENTS } from '$lib/types/lead';
+	import { BRANCHEN, BRANCHEN_KATEGORIEN, STATUSES, SEGMENTS } from '$lib/types/lead';
 	import type { Lead } from '$lib/types/lead';
 
 	interface Props {

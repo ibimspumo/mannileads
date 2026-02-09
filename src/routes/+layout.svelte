@@ -34,7 +34,8 @@
 		{ href: '/', label: 'Dashboard', icon: '▦' },
 		{ href: '/leads', label: 'Leads', icon: '☰' },
 		{ href: '/leads/new', label: '+ Neu', icon: '' },
-		{ href: '/import', label: 'Import', icon: '↑' }
+		{ href: '/import', label: 'Import', icon: '↑' },
+		{ href: '/coverage', label: 'Coverage', icon: '◫' }
 	];
 
 	let mobileMenuOpen = $state(false);

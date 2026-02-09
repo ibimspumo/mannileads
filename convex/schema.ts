@@ -69,4 +69,22 @@ export default defineSchema({
     .index("by_score", ["score"])
     .index("by_branche", ["branche"])
     .index("by_plz", ["plz"]),
+
+  // Coverage-Tracking: welche PLZ × Branche Kombinationen wurden gescrapt
+  coverage: defineTable({
+    plz: v.string(),
+    ort: v.string(),
+    branche: v.string(),
+    kategorie: v.string(),
+    // Ergebnisse
+    suchergebnisse: v.number(),    // Anzahl Brave-Ergebnisse
+    leadsGefunden: v.number(),     // Davon als Lead gespeichert
+    leadsGefiltert: v.number(),    // Davon gefiltert (Spam, kein Impressum, etc.)
+    // Timing
+    gescraptAm: v.string(),
+    dauerSekunden: v.optional(v.number()),
+  })
+    .index("by_plz", ["plz"])
+    .index("by_branche", ["branche"])
+    .index("by_plz_branche", ["plz", "branche"]),
 });

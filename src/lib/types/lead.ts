@@ -67,8 +67,7 @@ export interface ScoreBreakdownItem {
 
 export const SEGMENTS: Segment[] = ['HOT', 'WARM', 'COLD', 'DISQUALIFIED'];
 export const STATUSES: LeadStatus[] = ['Neu', 'Kontaktiert', 'Interessiert', 'Angebot', 'Gewonnen', 'Verloren'];
-export const BRANCHEN = [
-	'Gastronomie', 'Handwerk', 'Einzelhandel', 'Dienstleistung', 'IT/Tech',
-	'Gesundheit', 'Immobilien', 'Bildung', 'Tourismus', 'Automotive',
-	'Finanzen', 'Medien', 'Logistik', 'Sonstiges'
-];
+import branchenData from '$lib/data/branchen.json';
+
+export const BRANCHEN_KATEGORIEN = branchenData.categories;
+export const BRANCHEN = branchenData.categories.flatMap(c => c.branchen);
