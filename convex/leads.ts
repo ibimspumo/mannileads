@@ -22,23 +22,27 @@ export const stats = query({
   handler: async (ctx) => {
     const leads = await ctx.db.query("leads").collect();
     const total = leads.length;
-    const avgScore = total > 0 ? Math.round(leads.reduce((s, l) => s + l.score, 0) / total) : 0;
-    const mitKontakt = leads.filter((l) => l.ansprechpartner).length;
-
-    const segments = { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 };
+    let scoreSum = 0;
+    let mitKontakt = 0;
+    const segments: Record<string, number> = { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 };
     const statuses: Record<string, number> = {};
     const branchen: Record<string, number> = {};
-    const scoreDistribution = [0, 0, 0, 0, 0]; // 0-20, 21-40, 41-60, 61-80, 81-100
+    const scoreDistribution = [0, 0, 0, 0, 0];
 
     for (const l of leads) {
-      segments[l.segment]++;
-      statuses[l.status] = (statuses[l.status] || 0) + 1;
-      if (l.branche) branchen[l.branche] = (branchen[l.branche] || 0) + 1;
-      const bucket = Math.min(Math.floor(l.score / 20), 4);
-      scoreDistribution[bucket]++;
+      scoreSum += (typeof l.score === "number" ? l.score : 0);
+      if (l.ansprechpartner && l.ansprechpartner.length > 0) mitKontakt++;
+      const seg = l.segment as string;
+      if (seg in segments) segments[seg]++;
+      const st = l.status as string;
+      statuses[st] = (statuses[st] || 0) + 1;
+      const br = l.branche;
+      if (br) branchen[br] = (branchen[br] || 0) + 1;
+      const sc = typeof l.score === "number" ? l.score : 0;
+      scoreDistribution[Math.min(Math.floor(sc / 20), 4)]++;
     }
 
-    return { total, avgScore, mitKontakt, segments, statuses, branchen, scoreDistribution };
+    return { total, avgScore: total > 0 ? Math.round(scoreSum / total) : 0, mitKontakt, segments, statuses, branchen, scoreDistribution };
   },
 });
 

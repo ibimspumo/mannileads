@@ -444,7 +444,23 @@
       "Tierarzt",
       "Ergotherapie",
       "Logopädie",
-      "Heilpraktiker"
+      "Heilpraktiker",
+      "Psychotherapeut",
+      "Hörakustiker",
+      "Yoga-Studio",
+      "Kosmetikstudio",
+      "Nagelstudio",
+      "Massage",
+      "Barbershop",
+      "Tattoo-Studio",
+      "Pflegedienst",
+      "Tischler",
+      "Schreiner",
+      "Klempner",
+      "Sanitär Heizung",
+      "Rohrreinigung",
+      "Fliesenleger",
+      "Maurer"
     ],
     "19061": [
       "Friseur",
@@ -3749,7 +3765,23 @@
     "https://www.grit-winkler-augenarzt.de/%C3%B6ffnungszeiten/",
     "https://www.helios-gesundheit.de/standorte-angebote/kliniken/schwerin/leistungen/fachbereiche/orthopaedie/",
     "https://kinderarztpraxis-weststadt.de/",
-    "https://www.xn--schwerin-logopdie-3qb.de/logopaedische-praxis-schwerin.htm"
+    "https://www.xn--schwerin-logopdie-3qb.de/logopaedische-praxis-schwerin.htm",
+    "https://www.der-hoerakustiker.de/hoerakustiker/schwerin/rene-flack/schwerin-goethestrasse-6/",
+    "https://www.ihr-hoergeraet.de/akustiker/schwerin-hoer-werk-hoersysteme-17569/",
+    "https://www.lieblinger-kosmetik.de/",
+    "https://nagelpflege-24.de/betrieb.php?praxis=19877",
+    "https://www.nagelstudio-24.de/naildesign/?nd=19877",
+    "https://xn--permanent-schn-schwerin-klc.de/gesundheit/",
+    "https://www.seniorenportal.de/ambulanter-pflegedienst/pflegedienst-schwester-marlies-johannes-brahms-str-59-19059-schwerin",
+    "https://pflegedienst-schwester-marlies.de/kontakt/",
+    "https://www.biva.de/pflege-adressen/ambulant/mecklenburg-vorpommern/stadt-schwerin/schwerin/120065/ambulanter+pflegedienst+die+pflegef%C3%BCchse-weststadt/",
+    "https://www.tischlerei-dombrowski.de/",
+    "https://www.schreiner-tischler.de/schwerin-mecklenburg/tischlerei-kuhlmann-kuhlmann-marko",
+    "https://www.gebr-schwarz-haustechnik.de/",
+    "https://schwerin.live/magazin/bauen/rohrreinigung-fair-und-sauber",
+    "https://www.croonen.de/schwerin",
+    "https://schweriner-fliesenleger.de/",
+    "https://www.fliesenleger-rabe.de/"
   ],
   "known_emails": [
     "mail@haircosmeticteam.de",
@@ -5336,11 +5368,22 @@
     "mail@annettmeybaum.de",
     "hausarzt-weststadt@mvz-mv.de",
     "info@kinderarztpraxis-weststadt.de",
-    "logo-physio@web.de"
+    "logo-physio@web.de",
+    "info@hoersysteme-schwerin.de",
+    "info@lieblinger-kosmetik.de",
+    "info@pflegedienst-schwester-marlies.de",
+    "pflegefuechse-weststadt@vs-swm.de",
+    "info@tischlerei-dombrowski.de",
+    "info@kuhlmann-schwerin.de",
+    "info@gebr-schwarz-haustechnik.de",
+    "schwerin@rohrstar.de",
+    "croonen@croonen.de",
+    "info@fundtgbr.de",
+    "info@fliesen-rabe.de"
   ],
   "stats": {
-    "total_leads": 2202,
-    "total_searches": 1438,
-    "last_run": "2026-02-09T11:35:41.646062"
+    "total_leads": 2218,
+    "total_searches": 1454,
+    "last_run": "2026-02-09T11:42:45.645230"
   }
 }

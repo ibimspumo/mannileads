@@ -14,13 +14,36 @@
 	async function loadData() {
 		loading = true;
 		try {
-			const [s, tr] = await Promise.all([
-				convex.query(api.leads.stats),
-				convex.query(api.leads.topAndRecent, { limit: 10 }),
-			]);
-			stats = s;
-			topLeads = tr.topLeads.map((d: any) => ({ ...d, id: d._id }));
-			recentLeads = tr.recentLeads.map((d: any) => ({ ...d, id: d._id }));
+			// Load all leads and compute stats client-side (Convex free tier limit workaround)
+			const allLeads = await convex.query(api.leads.list);
+			const leads = allLeads.map((d: any) => ({ ...d, id: d._id }));
+
+			// Compute stats client-side
+			const total = leads.length;
+			let scoreSum = 0;
+			let mitKontakt = 0;
+			const segments: Record<string, number> = { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 };
+			const statuses: Record<string, number> = {};
+			const branchen: Record<string, number> = {};
+			const scoreDistribution = [0, 0, 0, 0, 0];
+
+			for (const l of leads) {
+				const sc = typeof l.score === 'number' ? l.score : 0;
+				scoreSum += sc;
+				if (l.ansprechpartner) mitKontakt++;
+				if (l.segment in segments) segments[l.segment]++;
+				statuses[l.status] = (statuses[l.status] || 0) + 1;
+				if (l.branche) branchen[l.branche] = (branchen[l.branche] || 0) + 1;
+				scoreDistribution[Math.min(Math.floor(sc / 20), 4)]++;
+			}
+
+			stats = { total, avgScore: total > 0 ? Math.round(scoreSum / total) : 0, mitKontakt, segments, statuses, branchen, scoreDistribution };
+
+			// Top + Recent from the loaded leads
+			const sorted = [...leads].sort((a, b) => (b.score || 0) - (a.score || 0));
+			topLeads = sorted.slice(0, 10);
+			const byDate = [...leads].sort((a, b) => b.erstelltAm.localeCompare(a.erstelltAm));
+			recentLeads = byDate.slice(0, 10);
 		} catch (e) {
 			console.error('Dashboard load error:', e);
 		} finally {
