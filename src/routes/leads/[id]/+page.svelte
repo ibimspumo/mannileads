@@ -7,11 +7,36 @@
 	import Badge from '$lib/components/atoms/Badge.svelte';
 	import Button from '$lib/components/atoms/Button.svelte';
 	import { getSegmentColor, getScoreColor } from '$lib/utils/scoring';
+	import { convex, api } from '$lib/convex';
 	import type { Lead } from '$lib/types/lead';
 
-	const lead = $derived($leads.find(l => l.id === $page.params.id));
+	let lead = $state<Lead | null>(null);
+	let loading = $state(true);
 	let editing = $state(false);
 	let saving = $state(false);
+
+	async function loadLead() {
+		loading = true;
+		try {
+			const id = $page.params.id;
+			// Try store first, then fetch directly
+			const fromStore = $leads.find(l => l.id === id);
+			if (fromStore) {
+				lead = fromStore;
+			} else {
+				const doc = await convex.query(api.leads.get, { id: id as any });
+				if (doc) lead = { ...doc, id: doc._id } as any;
+			}
+		} catch (e) {
+			console.error('Lead load error:', e);
+		} finally {
+			loading = false;
+		}
+	}
+
+	$effect(() => {
+		loadLead();
+	});
 
 	async function handleUpdate(data: Partial<Lead>) {
 		if (!lead) return;
