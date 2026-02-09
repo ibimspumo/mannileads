@@ -31,7 +31,7 @@ http.route({
         headers: { "Content-Type": "application/json" },
       });
     }
-    const leads = await ctx.runQuery(api.leads.list);
+    const leads = await ctx.runQuery(api.leads.list, { limit: 500 });
     return new Response(JSON.stringify({ leads, count: leads.length }), {
       status: 200,
       headers: {

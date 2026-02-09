@@ -3,10 +3,19 @@ import { v } from "convex/values";
 
 // ---- Queries ----
 
+// Sanitize string for Convex object keys (no non-ASCII)
+function sanitizeKey(s: string): string {
+  const map: Record<string, string> = {
+    "\u00e4": "ae", "\u00f6": "oe", "\u00fc": "ue",
+    "\u00c4": "Ae", "\u00d6": "Oe", "\u00dc": "Ue", "\u00df": "ss",
+  };
+  return s.replace(/[^\x20-\x7E]/g, (c) => map[c] || "_");
+}
+
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("leads").collect();
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    return await ctx.db.query("leads").take(args.limit ?? 500);
   },
 });
 
@@ -17,38 +26,50 @@ export const get = query({
   },
 });
 
+// Stats using single paginated query to stay within 16MB + 1-pagination limits
 export const stats = query({
   args: {},
   handler: async (ctx) => {
-    const leads = await ctx.db.query("leads").collect();
-    const total = leads.length;
-    let scoreSum = 0;
-    let mitKontakt = 0;
     const segments: Record<string, number> = { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 };
     const statuses: Record<string, number> = {};
-    const branchen: Record<string, number> = {};
+    const branchenMap = new Map<string, number>();
     const scoreDistribution = [0, 0, 0, 0, 0];
+    let total = 0;
+    let scoreSum = 0;
+    let mitKontakt = 0;
 
-    for (const l of leads) {
-      scoreSum += (typeof l.score === "number" ? l.score : 0);
+    // Single paginated query through all leads
+    const result = await ctx.db.query("leads").paginate({ numItems: 8000, cursor: null as any });
+    const allLeads = result.page;
+    // If not done, we have >8000 leads. For now handle what we got.
+    for (const l of allLeads) {
+      total++;
+      const sc = typeof l.score === "number" ? l.score : 0;
+      scoreSum += sc;
       if (l.ansprechpartner && l.ansprechpartner.length > 0) mitKontakt++;
       const seg = l.segment as string;
       if (seg in segments) segments[seg]++;
       const st = l.status as string;
-      statuses[st] = (statuses[st] || 0) + 1;
+      if (st) statuses[st] = (statuses[st] || 0) + 1;
       const br = l.branche;
-      if (br) {
-        // Sanitize for Convex: no non-ASCII in object keys
-        const brKey = br.replace(/[^\x20-\x7E]/g, (c) => (
-          {'\u00e4':'ae','\u00f6':'oe','\u00fc':'ue','\u00c4':'Ae','\u00d6':'Oe','\u00dc':'Ue','\u00df':'ss'}[c] || '_'
-        ));
-        branchen[brKey] = (branchen[brKey] || 0) + 1;
-      }
-      const sc = typeof l.score === "number" ? l.score : 0;
+      if (br) branchenMap.set(br, (branchenMap.get(br) || 0) + 1);
       scoreDistribution[Math.min(Math.floor(sc / 20), 4)]++;
     }
 
-    return { total, avgScore: total > 0 ? Math.round(scoreSum / total) : 0, mitKontakt, segments, statuses, branchen, scoreDistribution };
+    const branchen: Record<string, number> = {};
+    for (const [k, cnt] of branchenMap) {
+      branchen[sanitizeKey(k)] = cnt;
+    }
+
+    return {
+      total,
+      avgScore: total > 0 ? Math.round(scoreSum / total) : 0,
+      mitKontakt,
+      segments,
+      statuses,
+      branchen,
+      scoreDistribution,
+    };
   },
 });
 
@@ -70,44 +91,23 @@ export const listPaginated = query({
     const pageSize = args.pageSize ?? 100;
     const page = Math.max(1, args.page);
 
-    // Use index if only segment or branche filter
-    let q;
-    if (args.segment && !args.branche) {
-      q = ctx.db.query("leads").withIndex("by_segment", (q) => q.eq("segment", args.segment as any));
-    } else if (args.branche && !args.segment) {
-      q = ctx.db.query("leads").withIndex("by_branche", (q) => q.eq("branche", args.branche!));
-    } else {
-      q = ctx.db.query("leads");
-    }
-
-    let allFiltered = await q.collect();
-
-    // Apply remaining filters
-    if (args.segment && args.branche) {
-      allFiltered = allFiltered.filter((l) => l.segment === args.segment);
-      allFiltered = allFiltered.filter((l) => l.branche === args.branche);
-    } else if (args.branche && args.segment) {
-      allFiltered = allFiltered.filter((l) => l.branche === args.branche);
-    }
-    if (args.status) {
-      allFiltered = allFiltered.filter((l) => l.status === args.status);
-    }
-    if (args.plz) {
-      allFiltered = allFiltered.filter((l) => l.plz.startsWith(args.plz!));
-    }
-    if (args.scoreMin !== undefined) {
-      allFiltered = allFiltered.filter((l) => l.score >= args.scoreMin!);
-    }
-    if (args.scoreMax !== undefined) {
-      allFiltered = allFiltered.filter((l) => l.score <= args.scoreMax!);
-    }
-    if (args.searchQuery) {
-      const search = args.searchQuery.toLowerCase();
-      allFiltered = allFiltered.filter((l) =>
-        l.firma.toLowerCase().includes(search) ||
-        l.ort.toLowerCase().includes(search) ||
-        l.email.toLowerCase().includes(search)
-      );
+    // Single paginated query to get all leads (Convex limit: 1 pagination per function)
+    const result = await ctx.db.query("leads").paginate({ numItems: 8000, cursor: null as any });
+    const allFiltered: any[] = [];
+    for (const l of result.page) {
+      if (args.segment && l.segment !== args.segment) continue;
+      if (args.branche && l.branche !== args.branche) continue;
+      if (args.status && l.status !== args.status) continue;
+      if (args.plz && !l.plz.startsWith(args.plz)) continue;
+      if (args.scoreMin !== undefined && l.score < args.scoreMin) continue;
+      if (args.scoreMax !== undefined && l.score > args.scoreMax) continue;
+      if (args.searchQuery) {
+        const search = args.searchQuery.toLowerCase();
+        if (!l.firma.toLowerCase().includes(search) &&
+            !l.ort.toLowerCase().includes(search) &&
+            !l.email.toLowerCase().includes(search)) continue;
+      }
+      allFiltered.push(l);
     }
 
     // Sort
@@ -133,9 +133,10 @@ export const topAndRecent = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 10;
-    const all = await ctx.db.query("leads").collect();
-    const byScore = [...all].sort((a, b) => b.score - a.score).slice(0, limit);
-    const byDate = [...all].sort((a, b) => new Date(b.erstelltAm).getTime() - new Date(a.erstelltAm).getTime()).slice(0, limit);
+    // Use score index for top leads (desc order)
+    const byScore = await ctx.db.query("leads").withIndex("by_score").order("desc").take(limit);
+    // Use creation time for recent leads (desc = newest first)
+    const byDate = await ctx.db.query("leads").order("desc").take(limit);
     return { topLeads: byScore, recentLeads: byDate };
   },
 });
