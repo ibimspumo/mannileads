@@ -37,7 +37,13 @@ export const stats = query({
       const st = l.status as string;
       statuses[st] = (statuses[st] || 0) + 1;
       const br = l.branche;
-      if (br) branchen[br] = (branchen[br] || 0) + 1;
+      if (br) {
+        // Sanitize for Convex: no non-ASCII in object keys
+        const brKey = br.replace(/[^\x20-\x7E]/g, (c) => (
+          {'\u00e4':'ae','\u00f6':'oe','\u00fc':'ue','\u00c4':'Ae','\u00d6':'Oe','\u00dc':'Ue','\u00df':'ss'}[c] || '_'
+        ));
+        branchen[brKey] = (branchen[brKey] || 0) + 1;
+      }
       const sc = typeof l.score === "number" ? l.score : 0;
       scoreDistribution[Math.min(Math.floor(sc / 20), 4)]++;
     }
