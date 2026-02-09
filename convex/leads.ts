@@ -348,33 +348,27 @@ export const bulkCreate = mutation({
     leads: v.array(v.object(leadFields)),
   },
   handler: async (ctx, args) => {
-    // Dedup-Check via paginated read
-    const existingKeys = new Set<string>();
-    const existingEmails = new Set<string>();
-    let cursor: any = null;
-    let done = false;
-    while (!done) {
-      const pg: any = cursor
-        ? await ctx.db.query("leads").paginate({ numItems: 500, cursor })
-        : await ctx.db.query("leads").paginate({ numItems: 500, cursor: null as any });
-      for (const l of pg.page) {
-        existingKeys.add(`${l.firma.toLowerCase().trim()}|${l.plz}|${l.website.toLowerCase().trim()}`);
-        if (l.email) existingEmails.add(l.email.toLowerCase().trim());
-      }
-      done = pg.isDone;
-      cursor = pg.continueCursor;
-    }
-
     const s = await getOrCreateStats(ctx);
     const ids = [];
     let skipped = 0;
+    const batchEmails = new Set<string>();
+
     for (const lead of args.leads) {
-      const key = `${lead.firma.toLowerCase().trim()}|${lead.plz}|${lead.website.toLowerCase().trim()}`;
-      if (existingKeys.has(key)) { skipped++; continue; }
+      // Email dedup via index (O(1) per lead, no full scan)
       const email = lead.email?.toLowerCase().trim();
-      if (email && existingEmails.has(email)) { skipped++; continue; }
-      existingKeys.add(key);
-      if (email) existingEmails.add(email);
+      if (email && email.length > 0) {
+        if (batchEmails.has(email)) { skipped++; continue; }
+        const existing = await ctx.db.query("leads").withIndex("by_email", q => q.eq("email", email)).first();
+        if (existing) { skipped++; continue; }
+        batchEmails.add(email);
+      }
+      // Website dedup
+      const website = lead.website?.toLowerCase().trim();
+      if (website && website.length > 0) {
+        const existing = await ctx.db.query("leads").withIndex("by_website", q => q.eq("website", website)).first();
+        if (existing) { skipped++; continue; }
+      }
+
       const id = await ctx.db.insert("leads", lead);
       addToStats(s, lead, 1);
       ids.push(id);

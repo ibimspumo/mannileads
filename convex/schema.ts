@@ -68,7 +68,9 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_score", ["score"])
     .index("by_branche", ["branche"])
-    .index("by_plz", ["plz"]),
+    .index("by_plz", ["plz"])
+    .index("by_email", ["email"])
+    .index("by_website", ["website"]),
 
   // Aggregierte Stats - wird inkrementell aktualisiert bei jedem Lead-Insert/Update/Delete
   // Singleton: es gibt genau ein Dokument mit key="global"

@@ -1189,7 +1189,9 @@
       "Glaser",
       "Raumausstatter",
       "Bodenleger",
-      "Garten- und Landschaftsbau"
+      "Garten- und Landschaftsbau",
+      "Bauunternehmen",
+      "Trockenbau"
     ],
     "19071": [
       "Friseur",
@@ -1211,7 +1213,8 @@
       "Hotel",
       "Café",
       "Blumenladen",
-      "Fahrschule"
+      "Fahrschule",
+      "Konditorei"
     ],
     "19073": [
       "Friseur",
@@ -2232,7 +2235,27 @@
       "Spielwarenladen",
       "Möbelhaus",
       "Küchenstudio",
-      "Elektronikhandel"
+      "Elektronikhandel",
+      "Weinhandlung",
+      "Reformhaus",
+      "Bioladen",
+      "Geschenkeladen",
+      "Tierhandlung",
+      "Baustoffhandel",
+      "Fotograf",
+      "Videoproduktion",
+      "Werbeagentur",
+      "Druckerei",
+      "Umzugsunternehmen",
+      "Entrümpelung",
+      "Reinigungsservice",
+      "Hausmeisterservice",
+      "Sicherheitsdienst",
+      "Detektei",
+      "Übersetzungsbüro",
+      "Copyshop",
+      "Schneiderei",
+      "IT-Service"
     ],
     "18225": [
       "Friseur",
@@ -9267,7 +9290,37 @@
     "https://gutshaeuser.de/de/schloesser/schloss_wiligrad",
     "https://www.thieme-stadtmobiliar.com/de/stadtmobiliar/abfallbehaelter-ascher/abfallbehaelter/abfallbehaelter-serie-710/luebstorf-schloss-wiligrad",
     "https://www.landschaftsbau.net/luebstorf/burkhard-berg-5132872.html",
-    "https://garten-landbau.de/garten-landschaftsbauer/luebstorf/burkhard-berg-landschaftspflege-und-gestaltung/"
+    "https://garten-landbau.de/garten-landschaftsbauer/luebstorf/burkhard-berg-landschaftspflege-und-gestaltung/",
+    "https://www.fuljoyment.de/impressum/",
+    "https://reformhaus.de/blogs/reformhaus-schwester-sylke/reformhaus-schwester-sylke-bad-doberan",
+    "https://dein-kaufmannsladen.de/",
+    "https://www.hofladen-bauernladen.info/in/bad-doberan/55",
+    "https://vomhofladen.de/hofladen/bio-gutsladen-vorder-bollhagen/",
+    "https://kaufmannsladen-wegner.de/",
+    "https://www.kopfueberwasser.de/support/130/",
+    "https://bad-doberan.branchen-info.net/fp_358212.php",
+    "https://www.baustoffe.xyz/bau-egn-baumarkt-bad-doberan-gmbh-und-co-kg-in-bad-doberan-46106",
+    "https://muenster-doberan.de/index.php/de/impressionen/video",
+    "https://www.werbeagentur.de/de/a/meerwertagentur",
+    "https://www.stadt-bad-doberan.de/service",
+    "https://admannshagen-bargeshagen.branchen-info.net/fp_3833025.php",
+    "https://www.werbefirma-rostock.de/",
+    "https://andy-briesemeister.de/impressum/",
+    "https://www.kk-ostsee.de/",
+    "https://hausmeisterservice-wollner.de/",
+    "https://www.condetect.com/staedte/detektiv-bad-doberan.htm",
+    "https://www.privatdetektiv.de/bad-doberan",
+    "https://agenturincognito.de/privatdetektei/bad-doberan/",
+    "https://www.condetect.com/staedte/detektiv-mecklenburg-vorpommern.htm",
+    "https://adlatos.de/privatdetektei/personensuche/bad-doberan/",
+    "https://tranzzlate.de",
+    "https://www.linguamon.de/",
+    "https://www.contec-fachuebersetzungen.de/",
+    "https://internationales-uebersetzungsbuero.de/",
+    "https://www.team-uebersetzungen.de/bad-doberan/",
+    "https://www.kopiertechnik-peine.de/",
+    "https://www.w-itservice.de/impressum.html",
+    "https://www.it-ausschreibung.de/anbieter/14674/w-itservice"
   ],
   "known_emails": [
     "mail@haircosmeticteam.de",
@@ -12638,11 +12691,29 @@
     "info@rohrflix.de",
     "kunstverein_wiligrad@t-online.de",
     "info@thieme-stadtmobiliar.com",
-    "bb-galabau-berg@t-online.de"
+    "bb-galabau-berg@t-online.de",
+    "info@fuljoyment.de",
+    "kuester-doberan@elkm.de",
+    "info@meerwertagentur.de",
+    "post@stadt-dbr.de",
+    "mueller_werbung@web.de",
+    "info@werbekracher.com",
+    "info@andy-briesemeister.de",
+    "info@kk-ostsee.de",
+    "info@hausmeisterservice-wollner.de",
+    "info@privatdetektiv.de",
+    "mail@agenturincognito.de",
+    "info@adlatos.de",
+    "info@tranzzlate.com",
+    "info@linguamon.de",
+    "info@contec-fachuebersetzungen.de",
+    "kontakt@internationales-uebersetzungsbuero.de",
+    "kopier_technik@gmx.de",
+    "info@w-itservice.de"
   ],
   "stats": {
-    "total_leads": 5050,
-    "total_searches": 4081,
-    "last_run": "2026-02-09T22:46:48.506435"
+    "total_leads": 5080,
+    "total_searches": 4104,
+    "last_run": "2026-02-09T22:52:11.985470"
   }
 }
