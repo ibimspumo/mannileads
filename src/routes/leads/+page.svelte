@@ -39,7 +39,7 @@
 		loading = true;
 		try {
 			const f = $filters;
-			const result = await convex.query(api.leads.listPaginated, {
+			const result = await convex.action(api.leads.listPaginated, {
 				page: currentPage,
 				pageSize,
 				segment: f.segment || undefined,

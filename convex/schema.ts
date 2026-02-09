@@ -70,6 +70,33 @@ export default defineSchema({
     .index("by_branche", ["branche"])
     .index("by_plz", ["plz"]),
 
+  // Aggregierte Stats - wird inkrementell aktualisiert bei jedem Lead-Insert/Update/Delete
+  // Singleton: es gibt genau ein Dokument mit key="global"
+  leadStats: defineTable({
+    key: v.string(), // "global"
+    total: v.number(),
+    scoreSum: v.number(),
+    mitKontakt: v.number(),
+    segmentHot: v.number(),
+    segmentWarm: v.number(),
+    segmentCold: v.number(),
+    segmentDisqualified: v.number(),
+    statusNeu: v.number(),
+    statusKontaktiert: v.number(),
+    statusInteressiert: v.number(),
+    statusAngebot: v.number(),
+    statusGewonnen: v.number(),
+    statusVerloren: v.number(),
+    scoreDist0: v.number(), // 0-19
+    scoreDist1: v.number(), // 20-39
+    scoreDist2: v.number(), // 40-59
+    scoreDist3: v.number(), // 60-79
+    scoreDist4: v.number(), // 80-100
+    // Branchen as JSON string (Convex doesn't allow umlaut keys in objects)
+    branchenJson: v.string(),
+    updatedAt: v.string(),
+  }).index("by_key", ["key"]),
+
   // Coverage-Tracking: welche PLZ × Branche Kombinationen wurden gescrapt
   coverage: defineTable({
     plz: v.string(),

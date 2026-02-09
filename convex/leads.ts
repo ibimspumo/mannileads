@@ -1,10 +1,9 @@
-import { query, mutation, action, internalQuery } from "./_generated/server";
+import { query, mutation, action, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
-// ---- Queries ----
+// ---- Helpers ----
 
-// Sanitize string for Convex object keys (no non-ASCII)
 function sanitizeKey(s: string): string {
   const map: Record<string, string> = {
     "\u00e4": "ae", "\u00f6": "oe", "\u00fc": "ue",
@@ -12,6 +11,57 @@ function sanitizeKey(s: string): string {
   };
   return s.replace(/[^\x20-\x7E]/g, (c) => map[c] || "_");
 }
+
+function scoreBucket(score: number): number {
+  return Math.min(Math.floor(score / 20), 4);
+}
+
+function segmentField(seg: string): string {
+  const m: Record<string, string> = { HOT: "segmentHot", WARM: "segmentWarm", COLD: "segmentCold", DISQUALIFIED: "segmentDisqualified" };
+  return m[seg] || "segmentCold";
+}
+
+function statusField(st: string): string {
+  const m: Record<string, string> = { Neu: "statusNeu", Kontaktiert: "statusKontaktiert", Interessiert: "statusInteressiert", Angebot: "statusAngebot", Gewonnen: "statusGewonnen", Verloren: "statusVerloren" };
+  return m[st] || "statusNeu";
+}
+
+// Get or create the singleton stats doc
+async function getOrCreateStats(ctx: any) {
+  const existing = await ctx.db.query("leadStats").withIndex("by_key", (q: any) => q.eq("key", "global")).first();
+  if (existing) return existing;
+  const id = await ctx.db.insert("leadStats", {
+    key: "global", total: 0, scoreSum: 0, mitKontakt: 0,
+    segmentHot: 0, segmentWarm: 0, segmentCold: 0, segmentDisqualified: 0,
+    statusNeu: 0, statusKontaktiert: 0, statusInteressiert: 0, statusAngebot: 0, statusGewonnen: 0, statusVerloren: 0,
+    scoreDist0: 0, scoreDist1: 0, scoreDist2: 0, scoreDist3: 0, scoreDist4: 0,
+    branchenJson: "{}", updatedAt: new Date().toISOString(),
+  });
+  return await ctx.db.get(id);
+}
+
+// Add a lead's contribution to stats
+function addToStats(stats: any, lead: any, factor: number) {
+  stats.total += factor;
+  stats.scoreSum += (typeof lead.score === "number" ? lead.score : 0) * factor;
+  if (lead.ansprechpartner && lead.ansprechpartner.length > 0) stats.mitKontakt += factor;
+  const sf = segmentField(lead.segment);
+  stats[sf] = (stats[sf] || 0) + factor;
+  const stf = statusField(lead.status);
+  stats[stf] = (stats[stf] || 0) + factor;
+  const bucket = `scoreDist${scoreBucket(typeof lead.score === "number" ? lead.score : 0)}`;
+  stats[bucket] = (stats[bucket] || 0) + factor;
+  // Branchen
+  const branchen = JSON.parse(stats.branchenJson || "{}");
+  if (lead.branche) {
+    branchen[lead.branche] = (branchen[lead.branche] || 0) + factor;
+    if (branchen[lead.branche] <= 0) delete branchen[lead.branche];
+  }
+  stats.branchenJson = JSON.stringify(branchen);
+  stats.updatedAt = new Date().toISOString();
+}
+
+// ---- Queries ----
 
 export const list = query({
   args: { limit: v.optional(v.number()) },
@@ -27,93 +77,80 @@ export const get = query({
   },
 });
 
-// Internal: fetch one page of stats data
-export const _statsPage = internalQuery({
-  args: { cursor: v.union(v.string(), v.null()) },
-  handler: async (ctx, args) => {
-    const segments: Record<string, number> = { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 };
-    const statuses: Record<string, number> = {};
-    const branchenArr: Array<[string, number]> = [];
-    const branchenMap = new Map<string, number>();
-    const scoreDistribution = [0, 0, 0, 0, 0];
-    let total = 0, scoreSum = 0, mitKontakt = 0;
+// O(1) stats from pre-aggregated singleton - instant regardless of lead count
+export const stats = query({
+  args: {},
+  handler: async (ctx) => {
+    const s = await ctx.db.query("leadStats").withIndex("by_key", (q) => q.eq("key", "global")).first();
+    if (!s) return {
+      total: 0, avgScore: 0, mitKontakt: 0,
+      segments: { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 },
+      statuses: {}, branchen: {}, scoreDistribution: [0,0,0,0,0],
+    };
+    // Parse branchen and sanitize keys for safe transport
+    const rawBranchen = JSON.parse(s.branchenJson || "{}");
+    const branchen: Record<string, number> = {};
+    for (const [k, v] of Object.entries(rawBranchen)) {
+      branchen[sanitizeKey(k)] = v as number;
+    }
+    return {
+      total: s.total,
+      avgScore: s.total > 0 ? Math.round(s.scoreSum / s.total) : 0,
+      mitKontakt: s.mitKontakt,
+      segments: { HOT: s.segmentHot, WARM: s.segmentWarm, COLD: s.segmentCold, DISQUALIFIED: s.segmentDisqualified },
+      statuses: {
+        ...(s.statusNeu > 0 ? { Neu: s.statusNeu } : {}),
+        ...(s.statusKontaktiert > 0 ? { Kontaktiert: s.statusKontaktiert } : {}),
+        ...(s.statusInteressiert > 0 ? { Interessiert: s.statusInteressiert } : {}),
+        ...(s.statusAngebot > 0 ? { Angebot: s.statusAngebot } : {}),
+        ...(s.statusGewonnen > 0 ? { Gewonnen: s.statusGewonnen } : {}),
+        ...(s.statusVerloren > 0 ? { Verloren: s.statusVerloren } : {}),
+      },
+      branchen,
+      scoreDistribution: [s.scoreDist0, s.scoreDist1, s.scoreDist2, s.scoreDist3, s.scoreDist4],
+    };
+  },
+});
 
+// Internal: fetch one filtered page
+export const _listPage = internalQuery({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    segment: v.optional(v.string()),
+    branche: v.optional(v.string()),
+    searchQuery: v.optional(v.string()),
+    status: v.optional(v.string()),
+    scoreMin: v.optional(v.number()),
+    scoreMax: v.optional(v.number()),
+    plz: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const result = await ctx.db.query("leads").paginate({
       numItems: 500,
       cursor: (args.cursor ?? null) as any,
     });
-
+    const filtered: any[] = [];
     for (const l of result.page) {
-      total++;
-      const sc = typeof l.score === "number" ? l.score : 0;
-      scoreSum += sc;
-      if (l.ansprechpartner && l.ansprechpartner.length > 0) mitKontakt++;
-      const seg = l.segment as string;
-      if (seg in segments) segments[seg]++;
-      const st = l.status as string;
-      if (st) statuses[st] = (statuses[st] || 0) + 1;
-      const br = l.branche;
-      if (br) branchenMap.set(br, (branchenMap.get(br) || 0) + 1);
-      scoreDistribution[Math.min(Math.floor(sc / 20), 4)]++;
+      if (args.segment && l.segment !== args.segment) continue;
+      if (args.branche && l.branche !== args.branche) continue;
+      if (args.status && l.status !== args.status) continue;
+      if (args.plz && !l.plz.startsWith(args.plz)) continue;
+      if (args.scoreMin !== undefined && l.score < args.scoreMin) continue;
+      if (args.scoreMax !== undefined && l.score > args.scoreMax) continue;
+      if (args.searchQuery) {
+        const search = args.searchQuery.toLowerCase();
+        if (!l.firma.toLowerCase().includes(search) &&
+            !l.ort.toLowerCase().includes(search) &&
+            !l.email.toLowerCase().includes(search)) continue;
+      }
+      filtered.push(l);
     }
-    for (const [k, c] of branchenMap) branchenArr.push([k, c]);
-
-    return {
-      total, scoreSum, mitKontakt, segments, statuses, branchenArr, scoreDistribution,
-      nextCursor: result.isDone ? null : (result.continueCursor as string),
-    };
+    return { filtered, nextCursor: result.isDone ? null : (result.continueCursor as string) };
   },
 });
 
-// Action: aggregates multiple pages to get full stats (no 16MB single-query limit)
-export const stats = action({
-  args: {},
-  handler: async (ctx) => {
-    const segments: Record<string, number> = { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 };
-    const statuses: Record<string, number> = {};
-    const branchenMap = new Map<string, number>();
-    const scoreDistribution = [0, 0, 0, 0, 0];
-    let total = 0, scoreSum = 0, mitKontakt = 0;
-
-    let cursor: string | null = null;
-    let done = false;
-    while (!done) {
-      const page: any = await ctx.runQuery(internal.leads._statsPage, { cursor });
-      total += page.total;
-      scoreSum += page.scoreSum;
-      mitKontakt += page.mitKontakt;
-      for (const seg of ["HOT", "WARM", "COLD", "DISQUALIFIED"]) {
-        segments[seg] += (page.segments[seg] || 0);
-      }
-      for (const [k, v] of Object.entries(page.statuses)) {
-        statuses[k] = (statuses[k] || 0) + (v as number);
-      }
-      for (const [k, c] of page.branchenArr) {
-        branchenMap.set(k, (branchenMap.get(k) || 0) + c);
-      }
-      for (let i = 0; i < 5; i++) scoreDistribution[i] += page.scoreDistribution[i];
-      cursor = page.nextCursor;
-      done = cursor === null;
-    }
-
-    const branchen: Record<string, number> = {};
-    for (const [k, cnt] of branchenMap) {
-      branchen[sanitizeKey(k)] = cnt;
-    }
-
-    return {
-      total,
-      avgScore: total > 0 ? Math.round(scoreSum / total) : 0,
-      mitKontakt,
-      segments,
-      statuses,
-      branchen,
-      scoreDistribution,
-    };
-  },
-});
-
-export const listPaginated = query({
+// Action: paginated + filtered list across all leads
+export const listPaginated = action({
   args: {
     page: v.number(),
     pageSize: v.optional(v.number()),
@@ -130,24 +167,24 @@ export const listPaginated = query({
   handler: async (ctx, args) => {
     const pageSize = args.pageSize ?? 100;
     const page = Math.max(1, args.page);
-
-    // Single paginated query to get all leads (Convex limit: 1 pagination per function)
-    const result = await ctx.db.query("leads").paginate({ numItems: 8000, cursor: null as any });
     const allFiltered: any[] = [];
-    for (const l of result.page) {
-      if (args.segment && l.segment !== args.segment) continue;
-      if (args.branche && l.branche !== args.branche) continue;
-      if (args.status && l.status !== args.status) continue;
-      if (args.plz && !l.plz.startsWith(args.plz)) continue;
-      if (args.scoreMin !== undefined && l.score < args.scoreMin) continue;
-      if (args.scoreMax !== undefined && l.score > args.scoreMax) continue;
-      if (args.searchQuery) {
-        const search = args.searchQuery.toLowerCase();
-        if (!l.firma.toLowerCase().includes(search) &&
-            !l.ort.toLowerCase().includes(search) &&
-            !l.email.toLowerCase().includes(search)) continue;
-      }
-      allFiltered.push(l);
+
+    let cursor: string | null = null;
+    let done = false;
+    while (!done) {
+      const result: any = await ctx.runQuery(internal.leads._listPage, {
+        cursor,
+        segment: args.segment,
+        branche: args.branche,
+        searchQuery: args.searchQuery,
+        status: args.status,
+        scoreMin: args.scoreMin,
+        scoreMax: args.scoreMax,
+        plz: args.plz,
+      });
+      allFiltered.push(...result.filtered);
+      cursor = result.nextCursor;
+      done = cursor === null;
     }
 
     // Sort
@@ -234,7 +271,12 @@ const leadFields = {
 export const create = mutation({
   args: leadFields,
   handler: async (ctx, args) => {
-    return await ctx.db.insert("leads", args);
+    const id = await ctx.db.insert("leads", args);
+    // Update aggregated stats
+    const s = await getOrCreateStats(ctx);
+    addToStats(s, args, 1);
+    await ctx.db.replace(s._id, { ...s, _id: undefined, _creationTime: undefined } as any);
+    return id;
   },
 });
 
@@ -245,7 +287,15 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...data } = args;
+    const old = await ctx.db.get(id);
     await ctx.db.replace(id, data);
+    // Update stats: remove old contribution, add new
+    if (old) {
+      const s = await getOrCreateStats(ctx);
+      addToStats(s, old, -1);
+      addToStats(s, data, 1);
+      await ctx.db.replace(s._id, { ...s, _id: undefined, _creationTime: undefined } as any);
+    }
   },
 });
 
@@ -283,7 +333,13 @@ export const patch = mutation({
 export const remove = mutation({
   args: { id: v.id("leads") },
   handler: async (ctx, args) => {
+    const old = await ctx.db.get(args.id);
     await ctx.db.delete(args.id);
+    if (old) {
+      const s = await getOrCreateStats(ctx);
+      addToStats(s, old, -1);
+      await ctx.db.replace(s._id, { ...s, _id: undefined, _creationTime: undefined } as any);
+    }
   },
 });
 
@@ -292,36 +348,38 @@ export const bulkCreate = mutation({
     leads: v.array(v.object(leadFields)),
   },
   handler: async (ctx, args) => {
-    // Alle existierenden Leads laden für Duplikat-Check
-    const existing = await ctx.db.query("leads").collect();
-    const existingKeys = new Set(
-      existing.map((l) => `${l.firma.toLowerCase().trim()}|${l.plz}|${l.website.toLowerCase().trim()}`)
-    );
-    // Email-Dedup: jede Email darf nur einmal existieren
-    const existingEmails = new Set(
-      existing.filter((l) => l.email).map((l) => l.email.toLowerCase().trim())
-    );
+    // Dedup-Check via paginated read
+    const existingKeys = new Set<string>();
+    const existingEmails = new Set<string>();
+    let cursor: any = null;
+    let done = false;
+    while (!done) {
+      const pg: any = cursor
+        ? await ctx.db.query("leads").paginate({ numItems: 500, cursor })
+        : await ctx.db.query("leads").paginate({ numItems: 500, cursor: null as any });
+      for (const l of pg.page) {
+        existingKeys.add(`${l.firma.toLowerCase().trim()}|${l.plz}|${l.website.toLowerCase().trim()}`);
+        if (l.email) existingEmails.add(l.email.toLowerCase().trim());
+      }
+      done = pg.isDone;
+      cursor = pg.continueCursor;
+    }
 
+    const s = await getOrCreateStats(ctx);
     const ids = [];
     let skipped = 0;
     for (const lead of args.leads) {
-      // Check firma+plz+website
       const key = `${lead.firma.toLowerCase().trim()}|${lead.plz}|${lead.website.toLowerCase().trim()}`;
-      if (existingKeys.has(key)) {
-        skipped++;
-        continue;
-      }
-      // Check email uniqueness
+      if (existingKeys.has(key)) { skipped++; continue; }
       const email = lead.email?.toLowerCase().trim();
-      if (email && existingEmails.has(email)) {
-        skipped++;
-        continue;
-      }
+      if (email && existingEmails.has(email)) { skipped++; continue; }
       existingKeys.add(key);
       if (email) existingEmails.add(email);
       const id = await ctx.db.insert("leads", lead);
+      addToStats(s, lead, 1);
       ids.push(id);
     }
+    await ctx.db.replace(s._id, { ...s, _id: undefined, _creationTime: undefined } as any);
     return ids;
   },
 });
@@ -329,30 +387,110 @@ export const bulkCreate = mutation({
 export const clearAll = mutation({
   args: {},
   handler: async (ctx) => {
-    const all = await ctx.db.query("leads").collect();
-    for (const lead of all) {
-      await ctx.db.delete(lead._id);
+    let deleted = 0;
+    let cursor: any = null;
+    let done = false;
+    while (!done) {
+      const pg: any = cursor
+        ? await ctx.db.query("leads").paginate({ numItems: 500, cursor })
+        : await ctx.db.query("leads").paginate({ numItems: 500, cursor: null as any });
+      for (const lead of pg.page) {
+        await ctx.db.delete(lead._id);
+        deleted++;
+      }
+      done = pg.isDone;
+      cursor = pg.continueCursor;
     }
-    return { deleted: all.length };
+    // Reset stats
+    const s = await ctx.db.query("leadStats").withIndex("by_key", (q) => q.eq("key", "global")).first();
+    if (s) await ctx.db.delete(s._id);
+    return { deleted };
   },
 });
 
-export const replaceAll = mutation({
-  args: {
-    leads: v.array(v.object(leadFields)),
-  },
+// Internal: rebuild stats from one page
+export const _rebuildPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args) => {
-    // Delete all existing
-    const existing = await ctx.db.query("leads").collect();
-    for (const lead of existing) {
-      await ctx.db.delete(lead._id);
+    const result = await ctx.db.query("leads").paginate({
+      numItems: 500,
+      cursor: (args.cursor ?? null) as any,
+    });
+    const partial = {
+      total: 0, scoreSum: 0, mitKontakt: 0,
+      segmentHot: 0, segmentWarm: 0, segmentCold: 0, segmentDisqualified: 0,
+      statusNeu: 0, statusKontaktiert: 0, statusInteressiert: 0, statusAngebot: 0, statusGewonnen: 0, statusVerloren: 0,
+      scoreDist0: 0, scoreDist1: 0, scoreDist2: 0, scoreDist3: 0, scoreDist4: 0,
+      branchen: {} as Record<string, number>,
+    };
+    for (const l of result.page) {
+      partial.total++;
+      partial.scoreSum += typeof l.score === "number" ? l.score : 0;
+      if (l.ansprechpartner && l.ansprechpartner.length > 0) partial.mitKontakt++;
+      const sf = segmentField(l.segment) as keyof typeof partial;
+      (partial as any)[sf]++;
+      const stf = statusField(l.status) as keyof typeof partial;
+      (partial as any)[stf]++;
+      const bucket = `scoreDist${scoreBucket(typeof l.score === "number" ? l.score : 0)}` as keyof typeof partial;
+      (partial as any)[bucket]++;
+      if (l.branche) partial.branchen[l.branche] = (partial.branchen[l.branche] || 0) + 1;
     }
-    // Insert new
-    const ids = [];
-    for (const lead of args.leads) {
-      const id = await ctx.db.insert("leads", lead);
-      ids.push(id);
+    // Convert branchen to array to avoid umlaut key validation
+    const branchenArr = Object.entries(partial.branchen);
+    return { partial: { ...partial, branchen: undefined, branchenArr }, nextCursor: result.isDone ? null : (result.continueCursor as string) };
+  },
+});
+
+// Internal: write rebuilt stats
+export const _writeStats = internalMutation({
+  args: { data: v.any() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.query("leadStats").withIndex("by_key", (q) => q.eq("key", "global")).first();
+    const doc = { ...args.data, key: "global", updatedAt: new Date().toISOString() };
+    if (existing) {
+      await ctx.db.replace(existing._id, doc);
+    } else {
+      await ctx.db.insert("leadStats", doc);
     }
-    return ids;
+  },
+});
+
+// Rebuild stats from scratch (run once after migration, or to fix drift)
+export const rebuildStats = action({
+  args: {},
+  handler: async (ctx) => {
+    const agg = {
+      total: 0, scoreSum: 0, mitKontakt: 0,
+      segmentHot: 0, segmentWarm: 0, segmentCold: 0, segmentDisqualified: 0,
+      statusNeu: 0, statusKontaktiert: 0, statusInteressiert: 0, statusAngebot: 0, statusGewonnen: 0, statusVerloren: 0,
+      scoreDist0: 0, scoreDist1: 0, scoreDist2: 0, scoreDist3: 0, scoreDist4: 0,
+      branchenJson: "{}",
+    };
+    const branchenMap = new Map<string, number>();
+
+    let cursor: string | null = null;
+    let done = false;
+    while (!done) {
+      const page: any = await ctx.runQuery(internal.leads._rebuildPage, { cursor });
+      const p = page.partial;
+      agg.total += p.total;
+      agg.scoreSum += p.scoreSum;
+      agg.mitKontakt += p.mitKontakt;
+      for (const k of ["segmentHot","segmentWarm","segmentCold","segmentDisqualified","statusNeu","statusKontaktiert","statusInteressiert","statusAngebot","statusGewonnen","statusVerloren","scoreDist0","scoreDist1","scoreDist2","scoreDist3","scoreDist4"]) {
+        (agg as any)[k] += p[k] || 0;
+      }
+      for (const [k, v] of (p.branchenArr || [])) {
+        branchenMap.set(k as string, (branchenMap.get(k as string) || 0) + (v as number));
+      }
+      cursor = page.nextCursor;
+      done = cursor === null;
+    }
+
+    const branchen: Record<string, number> = {};
+    for (const [k, v] of branchenMap) branchen[k] = v;
+    agg.branchenJson = JSON.stringify(branchen);
+
+    await ctx.runMutation(internal.leads._writeStats, { data: agg });
+    return { total: agg.total, rebuilt: true };
   },
 });

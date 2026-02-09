@@ -16,7 +16,7 @@
 		try {
 			// Load stats from server action + top/recent from query (all paginated server-side)
 			const [statsData, trData] = await Promise.all([
-				convex.action(api.leads.stats, {}),
+				convex.query(api.leads.stats, {}),
 				convex.query(api.leads.topAndRecent, { limit: 10 }),
 			]);
 			stats = statsData;
