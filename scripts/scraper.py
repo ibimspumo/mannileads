@@ -69,7 +69,7 @@ if _plz_config.exists():
     except Exception:
         pass
 
-CONVEX_URL = "https://robust-goat-806.convex.cloud"
+CONVEX_URL = "https://energetic-civet-402.convex.cloud"
 STATE_FILE = Path(__file__).parent / "scraper_state.json"
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -583,6 +583,10 @@ def push_to_convex(leads: List[dict]) -> bool:
         "notizen", "ort", "plz", "position", "score", "segment", "segmentManuell",
         "socialMedia", "socialMediaLinks", "status", "tags", "telefon", "website",
         "websiteQualitaet",
+        # KI-Felder
+        "kiAnalysiert", "kiAnalysiertAm", "kiZielgruppe", "kiOnlineAuftritt",
+        "kiSchwaechen", "kiChancen", "kiWettbewerb", "kiAnsprache", "kiAnspracheSig",
+        "kiScore", "kiScoreBegruendung", "kiSegment",
     }
     clean_leads = [{k: v for k, v in lead.items() if k in CONVEX_FIELDS} for lead in leads]
     url = f"{CONVEX_URL}/api/mutation"

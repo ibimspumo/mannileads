@@ -2,41 +2,56 @@
 	import StatCard from '$lib/components/molecules/StatCard.svelte';
 	import ScoreBadge from '$lib/components/atoms/ScoreBadge.svelte';
 	import Badge from '$lib/components/atoms/Badge.svelte';
-	import { leads } from '$lib/stores/leads';
 	import { getSegmentColor, getScoreColor } from '$lib/utils/scoring';
+	import { convex, api } from '$lib/convex';
 	import type { Segment, LeadStatus } from '$lib/types/lead';
 
-	const allLeads = $derived($leads);
-	const loading = $derived(allLeads.length === 0 && !leads.loaded);
-	const total = $derived(allLeads.length);
-	const avgScore = $derived(total > 0 ? Math.round(allLeads.reduce((s, l) => s + l.score, 0) / total) : 0);
-	const mitKontakt = $derived(allLeads.filter(l => l.ansprechpartner).length);
-	const hotCount = $derived(allLeads.filter(l => l.segment === 'HOT').length);
+	let loading = $state(true);
+	let stats = $state<any>(null);
+	let topLeads = $state<any[]>([]);
+	let recentLeads = $state<any[]>([]);
+
+	async function loadData() {
+		loading = true;
+		try {
+			const [s, tr] = await Promise.all([
+				convex.query(api.leads.stats),
+				convex.query(api.leads.topAndRecent, { limit: 10 }),
+			]);
+			stats = s;
+			topLeads = tr.topLeads.map((d: any) => ({ ...d, id: d._id }));
+			recentLeads = tr.recentLeads.map((d: any) => ({ ...d, id: d._id }));
+		} catch (e) {
+			console.error('Dashboard load error:', e);
+		} finally {
+			loading = false;
+		}
+	}
+
+	// Load on mount
+	$effect(() => { loadData(); });
 
 	const segmentCounts = $derived(
-		(['HOT', 'WARM', 'COLD', 'DISQUALIFIED'] as Segment[]).map(seg => ({
+		stats ? (['HOT', 'WARM', 'COLD', 'DISQUALIFIED'] as Segment[]).map(seg => ({
 			segment: seg,
-			count: allLeads.filter(l => l.segment === seg).length,
+			count: stats.segments[seg] || 0,
 			color: getSegmentColor(seg),
-			pct: total > 0 ? Math.round(allLeads.filter(l => l.segment === seg).length / total * 100) : 0
-		}))
+			pct: stats.total > 0 ? Math.round((stats.segments[seg] || 0) / stats.total * 100) : 0
+		})) : []
 	);
 
 	const statusCounts = $derived(
-		(['Neu', 'Kontaktiert', 'Interessiert', 'Angebot', 'Gewonnen', 'Verloren'] as LeadStatus[]).map(s => ({
+		stats ? (['Neu', 'Kontaktiert', 'Interessiert', 'Angebot', 'Gewonnen', 'Verloren'] as LeadStatus[]).map(s => ({
 			status: s,
-			count: allLeads.filter(l => l.status === s).length
-		}))
+			count: stats.statuses[s] || 0
+		})) : []
 	);
 
-	const scoreDistribution = $derived(() => {
-		const buckets = [0, 0, 0, 0, 0]; // 0-19, 20-39, 40-59, 60-79, 80-100
-		for (const l of allLeads) {
-			const b = Math.min(Math.floor(l.score / 20), 4);
-			buckets[b]++;
-		}
+	const scoreDistributionData = $derived(() => {
+		if (!stats) return [];
+		const buckets = stats.scoreDistribution as number[];
 		const max = Math.max(...buckets, 1);
-		return buckets.map((count, i) => ({
+		return buckets.map((count: number, i: number) => ({
 			label: `${i * 20}-${i === 4 ? 100 : (i + 1) * 20 - 1}`,
 			count,
 			pct: Math.round(count / max * 100),
@@ -44,23 +59,12 @@
 		}));
 	});
 
-	const topBranchen = $derived(() => {
-		const map: Record<string, number> = {};
-		for (const l of allLeads) {
-			if (l.branche) map[l.branche] = (map[l.branche] || 0) + 1;
-		}
-		const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 6);
+	const topBranchenData = $derived(() => {
+		if (!stats) return [];
+		const sorted = Object.entries(stats.branchen as Record<string, number>).sort((a, b) => b[1] - a[1]).slice(0, 6);
 		const max = Math.max(sorted[0]?.[1] ?? 1, 1);
 		return sorted.map(([name, count]) => ({ name, count, pct: Math.round(count / max * 100) }));
 	});
-
-	const recentLeads = $derived(
-		[...allLeads].sort((a, b) => new Date(b.erstelltAm).getTime() - new Date(a.erstelltAm).getTime()).slice(0, 5)
-	);
-
-	const topLeads = $derived(
-		[...allLeads].sort((a, b) => b.score - a.score).slice(0, 5)
-	);
 </script>
 
 {#if loading}
@@ -76,7 +80,7 @@
 			{/each}
 		</div>
 	</div>
-{:else if total === 0}
+{:else if !stats || stats.total === 0}
 	<div class="flex flex-col items-center justify-center py-20 text-center">
 		<div class="text-6xl mb-4 opacity-20">▦</div>
 		<h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-2">Noch keine Leads</h2>
@@ -90,10 +94,10 @@
 	<div class="space-y-6 stagger">
 		<!-- Stats Row -->
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-			<StatCard label="Gesamt" value={total} icon="▦" />
-			<StatCard label="Ø Score" value={avgScore} color="var(--color-accent)" icon="◈" />
-			<StatCard label="HOT Leads" value={hotCount} color="var(--color-hot)" icon="◉" pulse={hotCount > 0} />
-			<StatCard label="Kontaktrate" value="{total > 0 ? Math.round(mitKontakt / total * 100) : 0}%" color="var(--color-success)" icon="◆" />
+			<StatCard label="Gesamt" value={stats.total} icon="▦" />
+			<StatCard label="Ø Score" value={stats.avgScore} color="var(--color-accent)" icon="◈" />
+			<StatCard label="HOT Leads" value={stats.segments.HOT || 0} color="var(--color-hot)" icon="◉" pulse={(stats.segments.HOT || 0) > 0} />
+			<StatCard label="Kontaktrate" value="{stats.total > 0 ? Math.round(stats.mitKontakt / stats.total * 100) : 0}%" color="var(--color-success)" icon="◆" />
 		</div>
 
 		<!-- Segment Distribution -->
@@ -133,7 +137,7 @@
 				<div class="panel-header">Score-Verteilung</div>
 				<div class="p-4">
 					<div class="flex items-end gap-2 h-32">
-						{#each scoreDistribution() as bucket}
+						{#each scoreDistributionData() as bucket}
 							<div class="flex-1 flex flex-col items-center gap-1">
 								<span class="text-[10px] font-mono font-bold" style="color: {bucket.color}">{bucket.count}</span>
 								<div
@@ -157,7 +161,7 @@
 							<div class="flex-1 h-5 bg-[var(--color-surface-700)] rounded overflow-hidden">
 								<div
 									class="h-full rounded transition-all duration-700 flex items-center px-2"
-									style="width: {total > 0 ? Math.max(s.count / total * 100, s.count > 0 ? 8 : 0) : 0}%;
+									style="width: {stats.total > 0 ? Math.max(s.count / stats.total * 100, s.count > 0 ? 8 : 0) : 0}%;
 										background: {s.status === 'Gewonnen' ? 'var(--color-success)' : s.status === 'Verloren' ? 'var(--color-error)' : 'var(--color-accent)'}; opacity: 0.7"
 								>
 									{#if s.count > 0}
@@ -174,7 +178,7 @@
 			<div class="panel">
 				<div class="panel-header">Top Branchen</div>
 				<div class="p-4 space-y-2">
-					{#each topBranchen() as b}
+					{#each topBranchenData() as b}
 						<div class="flex items-center gap-3">
 							<span class="text-xs text-[var(--color-text-secondary)] w-28 truncate">{b.name}</span>
 							<div class="flex-1 h-4 bg-[var(--color-surface-700)] rounded overflow-hidden">
@@ -190,7 +194,7 @@
 
 			<!-- Top Leads by Score -->
 			<div class="panel">
-				<div class="panel-header">Top 5 Leads</div>
+				<div class="panel-header">Top 10 Leads</div>
 				<div class="divide-y divide-[var(--color-surface-700)]">
 					{#each topLeads as lead, i}
 						<a href="/leads/{lead.id}" class="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-surface-700)] transition-colors group">
