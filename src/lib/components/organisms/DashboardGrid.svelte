@@ -84,7 +84,7 @@
 
 	const topBranchenData = $derived(() => {
 		if (!stats) return [];
-		const sorted = Object.entries(stats.branchen as Record<string, number>).sort((a, b) => b[1] - a[1]).slice(0, 6);
+		const sorted = Object.entries(stats.branchen as Record<string, number>).sort((a, b) => b[1] - a[1]);
 		const max = Math.max(sorted[0]?.[1] ?? 1, 1);
 		return sorted.map(([name, count]) => ({ name, count, pct: Math.round(count / max * 100) }));
 	});
@@ -198,16 +198,16 @@
 			</div>
 
 			<!-- Top Branchen -->
-			<div class="panel">
-				<div class="panel-header">Top Branchen</div>
-				<div class="p-4 space-y-2">
+			<div class="panel flex flex-col" style="max-height: 600px;">
+				<div class="panel-header shrink-0">Branchen ({topBranchenData().length})</div>
+				<div class="p-4 space-y-1.5 overflow-y-auto flex-1">
 					{#each topBranchenData() as b}
 						<div class="flex items-center gap-3">
-							<span class="text-xs text-[var(--color-text-secondary)] w-28 truncate">{b.name}</span>
-							<div class="flex-1 h-4 bg-[var(--color-surface-700)] rounded overflow-hidden">
+							<span class="text-xs text-[var(--color-text-secondary)] w-28 truncate" title={b.name}>{b.name}</span>
+							<div class="flex-1 h-3.5 bg-[var(--color-surface-700)] rounded overflow-hidden">
 								<div class="h-full bg-[var(--color-info)] rounded transition-all duration-700 opacity-50" style="width: {b.pct}%"></div>
 							</div>
-							<span class="text-xs font-mono font-bold text-[var(--color-text-secondary)]">{b.count}</span>
+							<span class="text-[11px] font-mono font-bold text-[var(--color-text-secondary)] w-8 text-right">{b.count}</span>
 						</div>
 					{:else}
 						<p class="text-xs text-[var(--color-text-muted)]">Keine Branchen-Daten</p>
@@ -216,9 +216,9 @@
 			</div>
 
 			<!-- Top Leads by Score -->
-			<div class="panel">
-				<div class="panel-header">Top 10 Leads</div>
-				<div class="divide-y divide-[var(--color-surface-700)]">
+			<div class="panel flex flex-col" style="max-height: 600px;">
+				<div class="panel-header shrink-0">Top 10 Leads</div>
+				<div class="divide-y divide-[var(--color-surface-700)] overflow-y-auto flex-1">
 					{#each topLeads as lead, i}
 						<a href="/leads/{lead.id}" class="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-surface-700)] transition-colors group">
 							<div class="flex items-center gap-3">
