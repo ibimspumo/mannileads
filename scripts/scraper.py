@@ -76,8 +76,8 @@ STATE_FILE = Path(__file__).parent / "scraper_state.json"
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 GEMINI_MODEL = "google/gemini-3-flash-preview"
-RATE_LIMIT_SECONDS = 0.3  # Brave Paid: ~3 req/s (safe margin)
-PARALLEL_WORKERS = 4  # Gleichzeitige URL-Verarbeitung (fetch + Gemini)
+RATE_LIMIT_SECONDS = 0.1  # Brave Paid: 20 req/s, wir nutzen ~10
+PARALLEL_WORKERS = 6  # Gleichzeitige URL-Verarbeitung (fetch + Gemini)
 
 # ---- Skip-Domains ----
 
@@ -135,14 +135,15 @@ log = logging.getLogger("scraper")
 # ---- API Keys ----
 
 def load_brave_key() -> str:
-    key = os.environ.get("BRAVE_API_KEY", "").strip()
-    if key:
-        return key
+    # Datei hat Priorität (einfacher Hot-Swap ohne Neustart)
     p = Path(__file__).parent / ".brave_search_key"
     if p.exists():
         lines = [l.strip() for l in p.read_text().splitlines() if l.strip() and not l.startswith("#")]
         if lines:
             return lines[0]
+    key = os.environ.get("BRAVE_API_KEY", "").strip()
+    if key:
+        return key
     log.error("Kein Brave Search API Key gefunden!")
     sys.exit(1)
 
@@ -267,7 +268,7 @@ def brave_search(query: str, api_key: str, count: int = 10) -> List[dict]:
 
 # ---- Website Fetching ----
 
-def fetch_page(url: str, timeout: int = 10) -> Optional[str]:
+def fetch_page(url: str, timeout: int = 7) -> Optional[str]:
     try:
         headers = {"User-Agent": "Mozilla/5.0 (compatible; ManniLeads/3.0)"}
         resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
