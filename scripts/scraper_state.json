@@ -478,7 +478,21 @@
       "Fahrradladen",
       "Autovermietung",
       "Abschleppdienst",
-      "Notar"
+      "Notar",
+      "Versicherungsmakler",
+      "Finanzberater",
+      "Hausverwaltung",
+      "Inkasso",
+      "Nachhilfe",
+      "Sprachschule",
+      "Musikschule",
+      "Tanzschule",
+      "Kita",
+      "Tagesmutter",
+      "Hundesalon",
+      "Hundeschule",
+      "Buchhandlung",
+      "Juwelier"
     ],
     "19061": [
       "Friseur",
@@ -3819,7 +3833,20 @@
     "https://www.reifen.com/de-de/storeselect/storedetail/8163_driver-center-schwerin",
     "https://www.meck-bike.de/",
     "https://www.vba-ev.de/mitgliedersuche?id=2373",
-    "https://www.abschleppdienst-24.com/abschleppdienst-schwerin/"
+    "https://www.abschleppdienst-24.com/abschleppdienst-schwerin/",
+    "https://robertnowak.de/",
+    "https://www.whofinance.de/berater/wolfram-goers/",
+    "https://www.wille-christen.de/",
+    "https://nordmann-inkasso.de/inkasso-schwerin/",
+    "https://www.creditreform.de/mv",
+    "https://www.abacus-nachhilfe.de/schwerin.html",
+    "https://www.kennstdueinen.de/nachhilfe-schwerin-studienkreis-schwerin-mitte-d30471-06.html",
+    "https://www.sprachschule-englischkurs.de/schwerin-sprachschule.htm",
+    "https://www.ballettschule-tschapek.de/",
+    "https://www.kitanetz.de/mecklenburg-vorpommern/19059/jean-sibelius-str-26.php",
+    "https://www.kita.de/kita/15778",
+    "https://www.hugendubel.de/de/branch?branchId=9872",
+    "https://www.siebenseencenter.de/einkaufswelt/geschaefte/4672/juwelier-karsten/"
   ],
   "known_emails": [
     "mail@haircosmeticteam.de",
@@ -5426,11 +5453,17 @@
     "info@reifen.com",
     "info@meck-bike.de",
     "info@abschleppdienst-schwerin.de",
-    "info@abschleppdienst-24.com"
+    "info@abschleppdienst-24.com",
+    "info@robertnowak.de",
+    "info@wille-christen.de",
+    "info@mv.creditreform.de",
+    "kontakt@abacus-nachhilfe.de",
+    "schwerin@sprachschule-englischkurs.de",
+    "ballettschapek@arcor.de"
   ],
   "stats": {
-    "total_leads": 2238,
-    "total_searches": 1472,
-    "last_run": "2026-02-09T11:51:03.227864"
+    "total_leads": 2251,
+    "total_searches": 1486,
+    "last_run": "2026-02-09T11:56:00.427820"
   }
 }

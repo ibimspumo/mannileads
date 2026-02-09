@@ -124,20 +124,32 @@
 		return json.value;
 	}
 
-	onMount(async () => {
+	let autoRefreshInterval: ReturnType<typeof setInterval>;
+	let lastUpdate = $state('');
+
+	async function loadData() {
 		try {
 			const [allData, statsData] = await Promise.all([
 				convexQuery('coverage:getAll'),
 				convexQuery('coverage:stats')
 			]);
-			data = allData ?? [];
-			stats = statsData ?? null;
-		} catch (e: any) {
-			error = e.message;
+			data = allData;
+			stats = statsData;
+			lastUpdate = new Date().toLocaleTimeString('de-DE');
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Unbekannter Fehler';
 		} finally {
 			loading = false;
 		}
+	}
+
+	onMount(async () => {
+		await loadData();
+		autoRefreshInterval = setInterval(loadData, 30_000);
+		return () => clearInterval(autoRefreshInterval);
 	});
+
+	// removed old onMount
 </script>
 
 <svelte:head>
@@ -159,7 +171,13 @@
 	<div class="flex items-center justify-between">
 		<h1 class="text-xl font-bold text-[var(--color-text-primary)]">Scraper Coverage</h1>
 		{#if !loading && data.length > 0}
-			<span class="text-xs font-mono text-[var(--color-text-muted)]">{data.length} Einträge geladen</span>
+			<div class="flex items-center gap-3">
+				<span class="text-xs font-mono text-[var(--color-text-muted)]">{data.length} Einträge</span>
+				{#if lastUpdate}
+					<span class="text-xs font-mono text-[var(--color-text-muted)]">Aktualisiert {lastUpdate}</span>
+				{/if}
+				<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Auto-Refresh alle 30s"></span>
+			</div>
 		{/if}
 	</div>
 
