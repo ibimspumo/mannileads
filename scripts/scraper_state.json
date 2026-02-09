@@ -460,7 +460,25 @@
       "Sanitär Heizung",
       "Rohrreinigung",
       "Fliesenleger",
-      "Maurer"
+      "Maurer",
+      "Zimmerer",
+      "Schlosser",
+      "Glaser",
+      "Raumausstatter",
+      "Bodenleger",
+      "Garten- und Landschaftsbau",
+      "Bauunternehmen",
+      "Trockenbau",
+      "Gebäudereinigung",
+      "Schädlingsbekämpfung",
+      "Schlüsseldienst",
+      "Autohaus",
+      "Autolackierung",
+      "Reifenservice",
+      "Fahrradladen",
+      "Autovermietung",
+      "Abschleppdienst",
+      "Notar"
     ],
     "19061": [
       "Friseur",
@@ -3781,7 +3799,27 @@
     "https://schwerin.live/magazin/bauen/rohrreinigung-fair-und-sauber",
     "https://www.croonen.de/schwerin",
     "https://schweriner-fliesenleger.de/",
-    "https://www.fliesenleger-rabe.de/"
+    "https://www.fliesenleger-rabe.de/",
+    "https://www.schlosser-portal.de/Schlosser/Mecklenburg-Vorpommern/Schwerin/Schlosser-firmen-1",
+    "https://shop.dag-torsysteme.de/schlosserei-schwerin/",
+    "https://www.glaserei.org/schwerin/markus-vinzing-glaserei-aULNZl",
+    "https://glas.de/anbieter/markus-vinzing-glaserei/",
+    "https://www.raumausstatter-helms.de/",
+    "https://www.bodenleger.net/schwerin/ralf-diessl-parkettlegerei-aUOfIt",
+    "https://bunsen-bau.com/",
+    "https://www.bauunternehmen.org/schwerin/bauausfhrung-eckhard-harm-gmbh-aUNI40",
+    "https://www.schleginski-bau.de/",
+    "https://www.nahbau-gmbh.de/",
+    "https://schaedlinge-wismar.de/index.php/leistungen-2/",
+    "https://atox-schaedlingsbekaempfung.de/schwerin-schwerin",
+    "https://fuerst-schaedlingsbekaempfung.de/servicegebiete/schwerin",
+    "https://gs-spill.de/leistungen/schaedlingsbekaempfung/",
+    "https://schwerin-sn.branchen-info.net/fp_3399053.php",
+    "https://www.wlw.de/de/firma/autohaus-am-mittelweg-gmbh-1159013",
+    "https://www.reifen.com/de-de/storeselect/storedetail/8163_driver-center-schwerin",
+    "https://www.meck-bike.de/",
+    "https://www.vba-ev.de/mitgliedersuche?id=2373",
+    "https://www.abschleppdienst-24.com/abschleppdienst-schwerin/"
   ],
   "known_emails": [
     "mail@haircosmeticteam.de",
@@ -5379,11 +5417,20 @@
     "schwerin@rohrstar.de",
     "croonen@croonen.de",
     "info@fundtgbr.de",
-    "info@fliesen-rabe.de"
+    "info@fliesen-rabe.de",
+    "info@dag-techniks.de",
+    "info@bunsen-bau.com",
+    "nah-bau@t-online.de",
+    "info@schaedlinge-wismar.de",
+    "info@gs-spill.de",
+    "info@reifen.com",
+    "info@meck-bike.de",
+    "info@abschleppdienst-schwerin.de",
+    "info@abschleppdienst-24.com"
   ],
   "stats": {
-    "total_leads": 2218,
-    "total_searches": 1454,
-    "last_run": "2026-02-09T11:42:45.645230"
+    "total_leads": 2238,
+    "total_searches": 1472,
+    "last_run": "2026-02-09T11:51:03.227864"
   }
 }

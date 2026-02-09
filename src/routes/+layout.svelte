@@ -31,11 +31,11 @@
 	}
 
 	const navItems = [
-		{ href: '/', label: 'Dashboard', icon: '▦' },
-		{ href: '/leads', label: 'Leads', icon: '☰' },
-		{ href: '/leads/new', label: '+ Neu', icon: '' },
-		{ href: '/import', label: 'Import', icon: '↑' },
-		{ href: '/coverage', label: 'Coverage', icon: '◫' }
+		{ href: '/', label: 'Dashboard' },
+		{ href: '/leads', label: 'Leads' },
+		{ href: '/leads/new', label: '+ Neu' },
+		{ href: '/import', label: 'Import' },
+		{ href: '/coverage', label: 'Coverage' }
 	];
 
 	let mobileMenuOpen = $state(false);
@@ -65,17 +65,28 @@
 					{/each}
 				</nav>
 			</div>
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-1">
 				<button onclick={refresh}
-					class="px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-accent)] rounded-md transition-colors cursor-pointer hover:bg-[var(--color-surface-700)]"
-					title="Daten aktualisieren"
-				>↻</button>
+					class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-accent)] rounded-md transition-colors cursor-pointer hover:bg-[var(--color-surface-700)]"
+					title="Daten neu laden"
+				>
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M5.1 15A7 7 0 0119.8 13M18.9 9A7 7 0 005.2 11" /></svg>
+					<span class="hidden sm:inline">Aktualisieren</span>
+				</button>
 				<button onclick={backup}
-					class="px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer hover:bg-[var(--color-surface-700)]"
-				>💾</button>
+					class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] rounded-md transition-colors cursor-pointer hover:bg-[var(--color-surface-700)]"
+					title="Backup als JSON herunterladen"
+				>
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2" /></svg>
+					<span class="hidden sm:inline">Backup</span>
+				</button>
 				<button onclick={() => auth.logout()}
-					class="px-2.5 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-red-400 rounded-md transition-colors cursor-pointer hover:bg-[var(--color-surface-700)]"
-				>⏻</button>
+					class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-red-400 rounded-md transition-colors cursor-pointer hover:bg-[var(--color-surface-700)]"
+					title="Abmelden"
+				>
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" /></svg>
+					<span class="hidden sm:inline">Abmelden</span>
+				</button>
 			</div>
 		</header>
 
