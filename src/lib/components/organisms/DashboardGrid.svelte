@@ -120,7 +120,7 @@
 			<StatCard label="Gesamt" value={stats.total} icon="▦" />
 			<StatCard label="Ø Score" value={stats.avgScore} color="var(--color-accent)" icon="◈" />
 			<StatCard label="HOT Leads" value={stats.segments.HOT || 0} color="var(--color-hot)" icon="◉" pulse={(stats.segments.HOT || 0) > 0} />
-			<StatCard label="Kontaktrate" value="{stats.total > 0 ? Math.round(stats.mitKontakt / stats.total * 100) : 0}%" color="var(--color-success)" icon="◆" />
+			<StatCard label="Mit Email" value="{stats.total > 0 ? Math.round(stats.mitKontakt / stats.total * 100) : 0}%" color="var(--color-success)" icon="◆" />
 		</div>
 
 		<!-- Segment Distribution -->

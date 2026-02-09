@@ -20,7 +20,9 @@ import os
 import re
 import sys
 import time
+import threading
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -74,7 +76,8 @@ STATE_FILE = Path(__file__).parent / "scraper_state.json"
 BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 GEMINI_MODEL = "google/gemini-3-flash-preview"
-RATE_LIMIT_SECONDS = 1.1  # Brave Free Tier
+RATE_LIMIT_SECONDS = 0.3  # Brave Paid: ~3 req/s (safe margin)
+PARALLEL_WORKERS = 4  # Gleichzeitige URL-Verarbeitung (fetch + Gemini)
 
 # ---- Skip-Domains ----
 
@@ -245,13 +248,21 @@ def is_completed(state: dict, plz: str, branche: str) -> bool:
 def brave_search(query: str, api_key: str, count: int = 10) -> List[dict]:
     headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
     params = {"q": query, "count": count, "country": "de", "search_lang": "de"}
-    try:
-        resp = requests.get(BRAVE_ENDPOINT, headers=headers, params=params, timeout=15)
-        resp.raise_for_status()
-        return resp.json().get("web", {}).get("results", [])
-    except requests.RequestException as e:
-        log.warning(f"Brave Search Fehler: {e}")
-        return []
+    for attempt in range(3):
+        try:
+            resp = requests.get(BRAVE_ENDPOINT, headers=headers, params=params, timeout=15)
+            if resp.status_code == 429:
+                wait = 2 ** attempt + 1
+                log.warning(f"Brave 429 Rate Limit — warte {wait}s (Versuch {attempt+1}/3)")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            return resp.json().get("web", {}).get("results", [])
+        except requests.RequestException as e:
+            log.warning(f"Brave Search Fehler: {e}")
+            if attempt < 2:
+                time.sleep(2)
+    return []
 
 
 # ---- Website Fetching ----
@@ -666,80 +677,88 @@ def run_scraper(plz_list: List[str], branchen: List[str], dry_run: bool = False,
                 log.info(f"  {len(results)} Ergebnisse")
                 combo_leads = []
 
+                # Pre-filter URLs before parallel processing
+                candidates = []
                 for result in results:
                     url = result.get("url", "")
                     snippet = result.get("description", "")
-
                     if url in seen_urls:
                         continue
-
                     if is_skip_domain(url):
                         stats["portal_skip"] += 1
                         continue
-
                     root = get_root_domain(url)
                     if root in seen_domains:
                         stats["duplicate_domain"] += 1
                         continue
+                    candidates.append((url, snippet, root))
 
-                    # Step 1: Fetch website data
-                    time.sleep(0.4)
-                    website_data = collect_website_data(url)
-                    if website_data is None:
-                        stats["no_impressum"] += 1
-                        seen_urls.add(url)
-                        continue
+                # Process URLs in parallel (fetch + Gemini)
+                _lock = threading.Lock()
 
-                    # Step 2: Gemini analysis
-                    time.sleep(0.3)
-                    gemini_data = analyze_with_gemini(website_data, branche, plz, ort, openrouter_key)
-                    if gemini_data is None:
-                        stats["gemini_fail"] += 1
-                        seen_urls.add(url)
-                        continue
+                def process_url(url_snippet_root):
+                    u, snip, rt = url_snippet_root
+                    wd = collect_website_data(u)
+                    if wd is None:
+                        return ("no_impressum", u, rt, None)
+                    gd = analyze_with_gemini(wd, branche, plz, ort, openrouter_key)
+                    if gd is None:
+                        return ("gemini_fail", u, rt, None)
+                    return ("ok", u, rt, (gd, wd, snip))
 
-                    # Check if Gemini says it's a real firm
-                    if not gemini_data.get("istEchteFirma", True):
-                        log.info(f"  ✗ Kein echtes Unternehmen laut Gemini: {url}")
-                        stats["not_real_firm"] += 1
-                        seen_urls.add(url)
+                with ThreadPoolExecutor(max_workers=PARALLEL_WORKERS) as pool:
+                    futures = {pool.submit(process_url, c): c for c in candidates}
+                    for future in as_completed(futures):
+                        status_code, url, root, payload = future.result()
+
+                        if status_code == "no_impressum":
+                            stats["no_impressum"] += 1
+                            seen_urls.add(url)
+                            continue
+                        if status_code == "gemini_fail":
+                            stats["gemini_fail"] += 1
+                            seen_urls.add(url)
+                            continue
+
+                        gemini_data, website_data, snippet = payload
+
+                        if not gemini_data.get("istEchteFirma", True):
+                            log.info(f"  ✗ Kein echtes Unternehmen laut Gemini: {url}")
+                            stats["not_real_firm"] += 1
+                            seen_urls.add(url)
+                            seen_domains.add(root)
+                            continue
+
+                        raw_email = (gemini_data.get("email") or "").strip()
+                        if raw_email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', raw_email):
+                            log.info(f"  ⚠ Ungültige Email verworfen: '{raw_email}'")
+                            gemini_data["email"] = ""
+
+                        firma = (gemini_data.get("firma") or "").strip()
+                        if not firma or len(firma) < 3:
+                            log.info(f"  ✗ Kein Firmenname extrahiert: {url}")
+                            seen_urls.add(url)
+                            continue
+
+                        email = (gemini_data.get("email") or "").strip().lower()
+                        if email and email in known_emails:
+                            log.info(f"  ✗ Email-Duplikat ({email}): {firma}")
+                            stats["duplicate_email"] += 1
+                            seen_urls.add(url)
+                            seen_domains.add(root)
+                            continue
+
+                        lead = build_lead(gemini_data, website_data, branche, plz, ort, snippet)
+                        combo_leads.append(lead)
                         seen_domains.add(root)
-                        continue
-
-                    # Validate email format
-                    raw_email = (gemini_data.get("email") or "").strip()
-                    if raw_email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', raw_email):
-                        log.info(f"  ⚠ Ungültige Email verworfen: '{raw_email}'")
-                        gemini_data["email"] = ""
-
-                    # Check firma name
-                    firma = (gemini_data.get("firma") or "").strip()
-                    if not firma or len(firma) < 3:
-                        log.info(f"  ✗ Kein Firmenname extrahiert: {url}")
                         seen_urls.add(url)
-                        continue
+                        if email:
+                            known_emails.add(email)
+                            state.setdefault("known_emails", []).append(email)
+                        state.setdefault("scraped_urls", []).append(url)
 
-                    # Email dedup
-                    email = (gemini_data.get("email") or "").strip().lower()
-                    if email and email in known_emails:
-                        log.info(f"  ✗ Email-Duplikat ({email}): {firma}")
-                        stats["duplicate_email"] += 1
-                        seen_urls.add(url)
-                        seen_domains.add(root)
-                        continue
-
-                    # Build lead
-                    lead = build_lead(gemini_data, website_data, branche, plz, ort, snippet)
-                    combo_leads.append(lead)
-                    seen_domains.add(root)
-                    seen_urls.add(url)
-                    if email:
-                        known_emails.add(email)
-                        state.setdefault("known_emails", []).append(email)
-                    state.setdefault("scraped_urls", []).append(url)
-
-                    seg_icon = {"HOT": "🔥", "WARM": "🟡", "COLD": "🔵", "DISQUALIFIED": "⚫"}.get(lead["segment"], "")
-                    log.info(f"  ✓ {seg_icon} {firma} — Score: {lead['score']}, Email: {'✓' if email else '✗'}, Tel: {'✓' if lead['telefon'] else '✗'}, Kontakt: {lead['ansprechpartner'] or '✗'}")
+                        seg_icon = {"HOT": "🔥", "WARM": "🟡", "COLD": "🔵", "DISQUALIFIED": "⚫"}.get(lead["segment"], "")
+                        log.info(f"  ✓ {seg_icon} {firma} — Score: {lead['score']}, Email: {'✓' if email else '✗'}, Tel: {'✓' if lead['telefon'] else '✗'}, Kontakt: {lead['ansprechpartner'] or '✗'}")
 
                 # Push combo to Convex
                 if combo_leads and not dry_run:
