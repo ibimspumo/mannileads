@@ -1,5 +1,6 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 // ---- Queries ----
 
@@ -26,23 +27,23 @@ export const get = query({
   },
 });
 
-// Stats using single paginated query to stay within 16MB + 1-pagination limits
-export const stats = query({
-  args: {},
-  handler: async (ctx) => {
+// Internal: fetch one page of stats data
+export const _statsPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
     const segments: Record<string, number> = { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 };
     const statuses: Record<string, number> = {};
+    const branchenArr: Array<[string, number]> = [];
     const branchenMap = new Map<string, number>();
     const scoreDistribution = [0, 0, 0, 0, 0];
-    let total = 0;
-    let scoreSum = 0;
-    let mitKontakt = 0;
+    let total = 0, scoreSum = 0, mitKontakt = 0;
 
-    // Single paginated query through all leads
-    const result = await ctx.db.query("leads").paginate({ numItems: 8000, cursor: null as any });
-    const allLeads = result.page;
-    // If not done, we have >8000 leads. For now handle what we got.
-    for (const l of allLeads) {
+    const result = await ctx.db.query("leads").paginate({
+      numItems: 500,
+      cursor: (args.cursor ?? null) as any,
+    });
+
+    for (const l of result.page) {
       total++;
       const sc = typeof l.score === "number" ? l.score : 0;
       scoreSum += sc;
@@ -54,6 +55,45 @@ export const stats = query({
       const br = l.branche;
       if (br) branchenMap.set(br, (branchenMap.get(br) || 0) + 1);
       scoreDistribution[Math.min(Math.floor(sc / 20), 4)]++;
+    }
+    for (const [k, c] of branchenMap) branchenArr.push([k, c]);
+
+    return {
+      total, scoreSum, mitKontakt, segments, statuses, branchenArr, scoreDistribution,
+      nextCursor: result.isDone ? null : (result.continueCursor as string),
+    };
+  },
+});
+
+// Action: aggregates multiple pages to get full stats (no 16MB single-query limit)
+export const stats = action({
+  args: {},
+  handler: async (ctx) => {
+    const segments: Record<string, number> = { HOT: 0, WARM: 0, COLD: 0, DISQUALIFIED: 0 };
+    const statuses: Record<string, number> = {};
+    const branchenMap = new Map<string, number>();
+    const scoreDistribution = [0, 0, 0, 0, 0];
+    let total = 0, scoreSum = 0, mitKontakt = 0;
+
+    let cursor: string | null = null;
+    let done = false;
+    while (!done) {
+      const page: any = await ctx.runQuery(internal.leads._statsPage, { cursor });
+      total += page.total;
+      scoreSum += page.scoreSum;
+      mitKontakt += page.mitKontakt;
+      for (const seg of ["HOT", "WARM", "COLD", "DISQUALIFIED"]) {
+        segments[seg] += (page.segments[seg] || 0);
+      }
+      for (const [k, v] of Object.entries(page.statuses)) {
+        statuses[k] = (statuses[k] || 0) + (v as number);
+      }
+      for (const [k, c] of page.branchenArr) {
+        branchenMap.set(k, (branchenMap.get(k) || 0) + c);
+      }
+      for (let i = 0; i < 5; i++) scoreDistribution[i] += page.scoreDistribution[i];
+      cursor = page.nextCursor;
+      done = cursor === null;
     }
 
     const branchen: Record<string, number> = {};
