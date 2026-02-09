@@ -156,7 +156,6 @@
       "Café",
       "Blumenladen",
       "Fahrschule",
-      "Konditorei",
       "Imbiss",
       "Pizzeria",
       "Lieferservice",
@@ -268,7 +267,8 @@
       "Uhrmacher",
       "Änderungsschneiderei",
       "Wäscherei",
-      "Textilreinigung"
+      "Textilreinigung",
+      "Konditorei"
     ],
     "19057": [
       "Friseur",
@@ -6131,7 +6131,7 @@
   ],
   "stats": {
     "total_leads": 2505,
-    "total_searches": 1758,
-    "last_run": "2026-02-09T13:02:50.392121"
+    "total_searches": 1759,
+    "last_run": "2026-02-09T13:15:33.488264"
   }
 }

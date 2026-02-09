@@ -43,6 +43,10 @@
     {
       "name": "Bestattung & Sonstiges",
       "branchen": ["Bestattungsinstitut", "Steinmetz", "Goldschmiede", "Uhrmacher", "Änderungsschneiderei", "Wäscherei", "Textilreinigung"]
+    },
+    {
+      "name": "Öffentlich & Kommunal",
+      "branchen": ["Stadtverwaltung", "Stadtmarketing", "Rathaus", "Tourismusverband", "Wirtschaftsförderung", "Gemeinde"]
     }
   ]
 }
