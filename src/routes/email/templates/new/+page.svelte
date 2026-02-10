@@ -116,7 +116,7 @@ ${body}
 						</label>
 						<input
 							bind:value={subject}
-							placeholder="z.B. Hallo {{firma}}, wir haben eine Idee..."
+							placeholder="z.B. Hallo &#123;&#123;firma&#125;&#125;, wir haben eine Idee..."
 							class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none font-mono"
 						/>
 						<div class="flex flex-wrap gap-1 mt-2">
