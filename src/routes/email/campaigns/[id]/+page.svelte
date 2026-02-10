@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { ConvexHttpClient } from 'convex/browser';
-	import { PUBLIC_CONVEX_URL } from '$env/static/public';
-	import { api, internal } from '$lib/convex/_generated/api';
+	
+	
+	import { convex, api } from '$lib/convex';
 
-	const client = new ConvexHttpClient(PUBLIC_CONVEX_URL);
+	
 
 	let campaign = $state<any>(null);
 	let sends = $state<any[]>([]);
@@ -28,8 +28,8 @@
 
 	async function loadCampaign() {
 		try {
-			campaign = await client.query(api.email.getCampaign, { id: campaignId as any });
-			sends = await client.query(api.email.listSends, { campaignId: campaignId as any, limit: 50 });
+			campaign = await convex.query(api.email.getCampaign, { id: campaignId as any });
+			sends = await convex.query(api.email.listSends, { campaignId: campaignId as any, limit: 50 });
 		} catch (error) {
 			console.error('Failed to load campaign:', error);
 		} finally {
@@ -41,7 +41,7 @@
 		if (!confirm(`Kampagne starten? ${campaign.totalLeads || 0} Emails werden versendet.`)) return;
 		processing = true;
 		try {
-			await client.action(api.emailSending.startCampaign, { campaignId: campaignId as any });
+			await convex.action(api.emailSending.startCampaign, { campaignId: campaignId as any });
 			await loadCampaign();
 			alert('Kampagne wurde gestartet! Emails werden in die Queue gelegt.');
 		} catch (error) {
@@ -55,7 +55,7 @@
 	async function pauseCampaign() {
 		processing = true;
 		try {
-			await client.mutation(api.email.updateCampaign, {
+			await convex.mutation(api.email.updateCampaign, {
 				id: campaignId as any,
 				status: 'paused'
 			});
@@ -71,7 +71,7 @@
 	async function processSendQueue() {
 		processing = true;
 		try {
-			await client.action(api.emailSending.processSendQueue, { batchSize: 10 });
+			await convex.action(api.emailSending.processSendQueue, { batchSize: 10 });
 			await loadCampaign();
 			alert('Batch verarbeitet!');
 		} catch (error) {

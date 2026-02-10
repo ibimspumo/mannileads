@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { ConvexHttpClient } from 'convex/browser';
-	import { PUBLIC_CONVEX_URL } from '$env/static/public';
-	import { api } from '$lib/convex/_generated/api';
+	
+	
+	import { convex, api } from '$lib/convex';
 
-	const client = new ConvexHttpClient(PUBLIC_CONVEX_URL);
+	
 
 	let accounts = $state<any[]>([]);
 	let templates = $state<any[]>([]);
@@ -47,9 +47,9 @@
 	onMount(async () => {
 		try {
 			[accounts, templates, leads] = await Promise.all([
-				client.query(api.email.listAccounts),
-				client.query(api.email.listTemplates),
-				client.query(api.leads.list)
+				convex.query(api.email.listAccounts),
+				convex.query(api.email.listTemplates),
+				convex.query(api.leads.list)
 			]);
 		} catch (error) {
 			console.error('Failed to load data:', error);
@@ -60,7 +60,7 @@
 
 	async function createCampaign() {
 		try {
-			const campaignId = await client.mutation(api.email.createCampaign, {
+			const campaignId = await convex.mutation(api.email.createCampaign, {
 				name: form.name,
 				templateId: form.templateId as any,
 				accountId: form.accountId as any,

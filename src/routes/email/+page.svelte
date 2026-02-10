@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ConvexHttpClient } from 'convex/browser';
-	import { PUBLIC_CONVEX_URL } from '$env/static/public';
-	import { api } from '$lib/convex/_generated/api';
+	
+	
+	import { convex, api } from '$lib/convex';
 
-	const client = new ConvexHttpClient(PUBLIC_CONVEX_URL);
+	
 
 	let campaigns = $state<any[]>([]);
 	let recentEvents = $state<any[]>([]);
@@ -39,8 +39,8 @@
 
 	onMount(async () => {
 		try {
-			campaigns = await client.query(api.email.listCampaigns);
-			recentEvents = await client.query(api.email.listEvents, { limit: 20 });
+			campaigns = await convex.query(api.email.listCampaigns);
+			recentEvents = await convex.query(api.email.listEvents, { limit: 20 });
 		} catch (error) {
 			console.error('Failed to load email data:', error);
 		} finally {

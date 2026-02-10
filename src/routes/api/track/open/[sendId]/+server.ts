@@ -1,5 +1,5 @@
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "$lib/convex/_generated/api";
+import { api } from "$lib/convex";
 import type { RequestHandler } from "./$types";
 import { PUBLIC_CONVEX_URL } from "$env/static/public";
 

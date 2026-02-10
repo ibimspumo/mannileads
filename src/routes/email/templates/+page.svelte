@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ConvexHttpClient } from 'convex/browser';
-	import { PUBLIC_CONVEX_URL } from '$env/static/public';
-	import { api } from '$lib/convex/_generated/api';
+	
+	
+	import { convex, api } from '$lib/convex';
 
-	const client = new ConvexHttpClient(PUBLIC_CONVEX_URL);
+	
 
 	let templates = $state<any[]>([]);
 	let loading = $state(true);
@@ -38,7 +38,7 @@
 
 	async function loadTemplates() {
 		try {
-			templates = await client.query(api.email.listTemplates);
+			templates = await convex.query(api.email.listTemplates);
 		} catch (error) {
 			console.error('Failed to load templates:', error);
 		} finally {
@@ -74,13 +74,13 @@
 			);
 
 			if (editingId) {
-				await client.mutation(api.email.updateTemplate, {
+				await convex.mutation(api.email.updateTemplate, {
 					id: editingId as any,
 					...form,
 					placeholders: usedPlaceholders
 				});
 			} else {
-				await client.mutation(api.email.createTemplate, {
+				await convex.mutation(api.email.createTemplate, {
 					...form,
 					placeholders: usedPlaceholders
 				});
@@ -96,7 +96,7 @@
 	async function deleteTemplate(id: string) {
 		if (!confirm('Template wirklich löschen?')) return;
 		try {
-			await client.mutation(api.email.deleteTemplate, { id: id as any });
+			await convex.mutation(api.email.deleteTemplate, { id: id as any });
 			await loadTemplates();
 		} catch (error) {
 			console.error('Failed to delete template:', error);

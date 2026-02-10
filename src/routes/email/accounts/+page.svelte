@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ConvexHttpClient } from 'convex/browser';
-	import { PUBLIC_CONVEX_URL } from '$env/static/public';
-	import { api } from '$lib/convex/_generated/api';
+	
+	
+	import { convex, api } from '$lib/convex';
 
-	const client = new ConvexHttpClient(PUBLIC_CONVEX_URL);
+	
 
 	let accounts = $state<any[]>([]);
 	let loading = $state(true);
@@ -28,7 +28,7 @@
 
 	async function loadAccounts() {
 		try {
-			accounts = await client.query(api.email.listAccounts);
+			accounts = await convex.query(api.email.listAccounts);
 		} catch (error) {
 			console.error('Failed to load accounts:', error);
 		} finally {
@@ -67,12 +67,12 @@
 	async function saveAccount() {
 		try {
 			if (editingId) {
-				await client.mutation(api.email.updateAccount, {
+				await convex.mutation(api.email.updateAccount, {
 					id: editingId as any,
 					...form
 				});
 			} else {
-				await client.mutation(api.email.createAccount, form);
+				await convex.mutation(api.email.createAccount, form);
 			}
 			await loadAccounts();
 			resetForm();
@@ -85,7 +85,7 @@
 	async function deleteAccount(id: string) {
 		if (!confirm('Account wirklich löschen?')) return;
 		try {
-			await client.mutation(api.email.deleteAccount, { id: id as any });
+			await convex.mutation(api.email.deleteAccount, { id: id as any });
 			await loadAccounts();
 		} catch (error) {
 			console.error('Failed to delete account:', error);
@@ -95,7 +95,7 @@
 
 	async function toggleActive(id: string, active: boolean) {
 		try {
-			await client.mutation(api.email.updateAccount, {
+			await convex.mutation(api.email.updateAccount, {
 				id: id as any,
 				active: !active
 			});
