@@ -12,47 +12,26 @@
 	let rawBody = $state('');
 	let saving = $state(false);
 	let loading = $state(true);
+	let previewLead = $state<Record<string, any> | null>(null);
 
-	const EXAMPLE_DATA: Record<string, string> = {
-		firma: 'Musterfirma GmbH',
-		email: 'info@musterfirma.de',
-		ansprechpartner: 'Max Mustermann',
-		position: 'Geschäftsführer',
-		telefon: '0385 123456',
-		strasse: 'Schloßstraße 1',
-		plz: '19053',
-		ort: 'Schwerin',
-		bundesland: 'Mecklenburg-Vorpommern',
-		branche: 'Gastronomie',
-		groesse: 'Klein (1-10)',
-		website: 'www.musterfirma.de',
-		websiteQualitaet: '45',
-		socialMediaLinks: 'facebook.com/musterfirma',
-		googleBewertung: '4.2 (38 Bewertungen)',
-		score: '75',
-		segment: 'HOT',
-		kiScore: '82',
-		kiSegment: 'HOT',
-		kiScoreBegruendung: 'Hohe lokale Relevanz, ausbaufähiger Online-Auftritt',
-		kiZusammenfassung: 'Etabliertes Restaurant in der Schweriner Altstadt mit gutem Ruf aber schwacher Online-Präsenz.',
-		kiAnsprache: 'Ihr Restaurant hat top Google-Bewertungen, aber online verschenken Sie Potenzial. Wir bringen Ihre Sichtbarkeit auf das Level, das Ihre Küche verdient.',
-		kiAnspracheSig: 'Mit über 10.000 Lesern monatlich erreicht Schwerin ist Geil genau Ihre Zielgruppe — Schweriner, die gerne ausgehen.',
-		kiZielgruppe: 'Lokale Feinschmecker, Touristen, Geschäftsessen',
-		kiOnlineAuftritt: 'Website veraltet (kein Responsive Design), Social Media inaktiv seit 6 Monaten',
-		kiSchwaechen: 'Keine Online-Reservierung, Social Media vernachlässigt, Website nicht mobiloptimiert',
-		kiChancen: 'Social Media Relaunch, Google Business optimieren, Online-Reservierung einrichten',
-		kiWettbewerb: '3 ähnliche Restaurants im Umkreis, alle mit besserer Online-Präsenz',
-		status: 'Neu',
-		tags: 'Restaurant, Altstadt, Premium',
-		notizen: '',
-	};
+	function leadToStrings(lead: Record<string, any>): Record<string, string> {
+		const result: Record<string, string> = {};
+		for (const [k, v] of Object.entries(lead)) {
+			if (v == null) result[k] = '';
+			else if (Array.isArray(v)) result[k] = v.join(', ');
+			else result[k] = String(v);
+		}
+		return result;
+	}
+
+	let previewData = $derived(previewLead ? leadToStrings(previewLead) : {});
 
 	let previewHtml = $derived(
-		(rawBody || htmlBody).replace(/\{\{(\w+)\}\}/g, (_, key) => EXAMPLE_DATA[key] || `{{${key}}}`)
+		(rawBody || htmlBody).replace(/\{\{(\w+)\}\}/g, (_, key) => previewData[key] ?? `{{${key}}}`)
 	);
 
 	let previewSubject = $derived(
-		subject.replace(/\{\{(\w+)\}\}/g, (_, key) => EXAMPLE_DATA[key] || `{{${key}}}`)
+		subject.replace(/\{\{(\w+)\}\}/g, (_, key) => previewData[key] ?? `{{${key}}}`)
 	);
 
 	let usedPlaceholders = $derived(
@@ -61,6 +40,10 @@
 
 	onMount(async () => {
 		try {
+			const leads = await convex.query(api.leads.topAndRecent, { limit: 1 });
+			if (leads?.recent?.length > 0) previewLead = leads.recent[0];
+			else if (leads?.topScored?.length > 0) previewLead = leads.topScored[0];
+
 			const tmpl = await convex.query(api.email.getTemplate, { id: templateId as any });
 			if (tmpl) {
 				name = tmpl.name;
@@ -192,7 +175,9 @@ ${body}
 				<div class="panel-header">
 					<div class="flex items-center justify-between w-full">
 						<span>Vorschau</span>
-						<span class="text-[10px] text-[var(--color-text-muted)] font-normal">mit Beispieldaten</span>
+						<span class="text-[10px] text-[var(--color-text-muted)] font-normal">
+							{previewLead ? previewLead.firma : 'Lade Lead...'}
+						</span>
 					</div>
 				</div>
 				<div class="p-4 space-y-3">
