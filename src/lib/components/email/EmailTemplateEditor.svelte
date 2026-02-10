@@ -17,7 +17,7 @@
 	let { content = '', onchange }: Props = $props();
 
 	let editorElement: HTMLDivElement;
-	let editor: Editor | null = null;
+	let editor = $state<Editor | null>(null);
 	let showPlaceholders = $state(false);
 	let showColorPicker = $state(false);
 
