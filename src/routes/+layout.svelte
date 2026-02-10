@@ -35,7 +35,8 @@
 		{ href: '/leads', label: 'Leads' },
 		{ href: '/leads/new', label: '+ Neu' },
 		{ href: '/import', label: 'Import' },
-		{ href: '/coverage', label: 'Coverage' }
+		{ href: '/coverage', label: 'Coverage' },
+		{ href: '/email', label: 'Email' }
 	];
 
 	let mobileMenuOpen = $state(false);

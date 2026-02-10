@@ -116,4 +116,134 @@ export default defineSchema({
     .index("by_plz", ["plz"])
     .index("by_branche", ["branche"])
     .index("by_plz_branche", ["plz", "branche"]),
+
+  // ===== EMAIL INTEGRATION =====
+
+  // Email Accounts — Multi-Account SES Config
+  emailAccounts: defineTable({
+    name: v.string(),               // "Schwerin ist Geil", "okapi Design", etc.
+    fromEmail: v.string(),          // kontakt@schwerinistgeil.de
+    fromName: v.string(),           // "Manfred Bellmann"
+    signatureHtml: v.string(),      // HTML Signatur
+    // SES Credentials (encrypted in production, plain for now)
+    sesAccessKey: v.string(),
+    sesSecretKey: v.string(),
+    sesRegion: v.string(),          // us-east-1
+    // Status
+    active: v.boolean(),
+    verified: v.boolean(),          // SES Domain/Email verified?
+    // Stats
+    totalSent: v.number(),
+    lastSentAt: v.optional(v.string()),
+    // Meta
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_active", ["active"])
+    .index("by_email", ["fromEmail"]),
+
+  // Email Templates — Kampagnen-Templates
+  emailTemplates: defineTable({
+    name: v.string(),
+    subject: v.string(),            // Mit Platzhaltern: "Hallo {{ansprechpartner}}"
+    htmlBody: v.string(),           // HTML mit {{firma}}, {{branche}}, etc.
+    // Platzhalter-Info für UI
+    placeholders: v.array(v.string()), // ["firma", "ansprechpartner", "branche", ...]
+    // Meta
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    createdBy: v.optional(v.string()),
+  }),
+
+  // Email Campaigns — Kampagnen
+  emailCampaigns: defineTable({
+    name: v.string(),
+    templateId: v.id("emailTemplates"),
+    accountId: v.id("emailAccounts"),
+    // Targeting/Filters (als JSON gespeichert)
+    filtersJson: v.string(),        // { branche: "Restaurant", plz: "19055", score: { min: 60 } }
+    // Status
+    status: v.union(
+      v.literal("draft"),
+      v.literal("queued"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("paused")
+    ),
+    // Stats
+    totalLeads: v.number(),         // Gefilterte Leads
+    totalQueued: v.number(),
+    totalSent: v.number(),
+    totalDelivered: v.number(),
+    totalOpened: v.number(),
+    totalClicked: v.number(),
+    totalBounced: v.number(),
+    totalComplained: v.number(),
+    // Rates (calculated)
+    openRate: v.optional(v.number()),
+    clickRate: v.optional(v.number()),
+    bounceRate: v.optional(v.number()),
+    // Timing
+    createdAt: v.string(),
+    startedAt: v.optional(v.string()),
+    completedAt: v.optional(v.string()),
+  })
+    .index("by_status", ["status"])
+    .index("by_account", ["accountId"])
+    .index("by_template", ["templateId"]),
+
+  // Email Sends — Einzelne Email-Versand-Jobs
+  emailSends: defineTable({
+    campaignId: v.id("emailCampaigns"),
+    leadId: v.id("leads"),
+    accountId: v.id("emailAccounts"),
+    // Email-Inhalt (rendered)
+    to: v.string(),
+    subject: v.string(),
+    htmlBody: v.string(),           // Mit eingefügtem Tracking-Pixel + ersetzten Links
+    // Status
+    status: v.union(
+      v.literal("queued"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("delivered"),
+      v.literal("opened"),
+      v.literal("clicked"),
+      v.literal("bounced"),
+      v.literal("complained"),
+      v.literal("failed")
+    ),
+    // SES Response
+    sesMessageId: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    // Timestamps
+    queuedAt: v.string(),
+    sentAt: v.optional(v.string()),
+    deliveredAt: v.optional(v.string()),
+    openedAt: v.optional(v.string()),
+    clickedAt: v.optional(v.string()),
+    bouncedAt: v.optional(v.string()),
+  })
+    .index("by_campaign", ["campaignId"])
+    .index("by_lead", ["leadId"])
+    .index("by_status", ["status"])
+    .index("by_queued", ["queuedAt"]),
+
+  // Email Events — Tracking Events (Opens, Clicks, Bounces)
+  emailEvents: defineTable({
+    sendId: v.id("emailSends"),
+    type: v.union(
+      v.literal("open"),
+      v.literal("click"),
+      v.literal("bounce"),
+      v.literal("complaint")
+    ),
+    // Metadata
+    metadata: v.optional(v.string()), // JSON: { url: "...", userAgent: "...", ip: "..." }
+    // Timestamps
+    timestamp: v.string(),
+  })
+    .index("by_send", ["sendId"])
+    .index("by_type", ["type"])
+    .index("by_timestamp", ["timestamp"]),
 });

@@ -21,6 +21,7 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.986.0",
     "@sveltejs/adapter-vercel": "^6.3.1",
     "convex": "^1.31.7"
   }
