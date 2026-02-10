@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { mutation, query, action, internalQuery } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
 // ===== EMAIL ACCOUNTS =====
@@ -456,6 +456,83 @@ export const testConnection = action({
         error: error.message || "Unbekannter Fehler",
       };
     }
+  },
+});
+
+// ===== CAMPAIGN LEAD COUNTING =====
+
+// Internal query to paginate through leads
+export const _countLeadsPage = internalQuery({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    branche: v.optional(v.string()),
+    plz: v.optional(v.string()),
+    segment: v.optional(v.string()),
+    status: v.optional(v.string()),
+    scoreMin: v.number(),
+    scoreMax: v.number(),
+    previewLimit: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const result = await ctx.db.query("leads").paginate({
+      numItems: 500,
+      cursor: (args.cursor ?? null) as any,
+    });
+    let count = 0;
+    const preview: any[] = [];
+    for (const l of result.page) {
+      if (!l.email || l.email.trim() === '') continue;
+      if (args.branche && l.branche !== args.branche) continue;
+      if (args.plz && !l.plz.startsWith(args.plz)) continue;
+      if (args.segment && l.segment !== args.segment) continue;
+      if (args.status && l.status !== args.status) continue;
+      if (l.score < args.scoreMin || l.score > args.scoreMax) continue;
+      count++;
+      if (preview.length < args.previewLimit) {
+        preview.push({ _id: l._id, firma: l.firma, email: l.email, ort: l.ort, branche: l.branche });
+      }
+    }
+    return { count, preview, nextCursor: result.isDone ? null : (result.continueCursor as string) };
+  },
+});
+
+// Action: count all matching leads for campaign targeting
+export const countLeadsForCampaign = action({
+  args: {
+    branche: v.optional(v.string()),
+    plz: v.optional(v.string()),
+    segment: v.optional(v.string()),
+    status: v.optional(v.string()),
+    scoreMin: v.optional(v.number()),
+    scoreMax: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    let totalCount = 0;
+    const allPreview: any[] = [];
+    let cursor: string | null = null;
+    let done = false;
+
+    while (!done) {
+      const result: any = await ctx.runQuery(internal.email._countLeadsPage, {
+        cursor,
+        branche: args.branche,
+        plz: args.plz,
+        segment: args.segment,
+        status: args.status,
+        scoreMin: args.scoreMin ?? 0,
+        scoreMax: args.scoreMax ?? 100,
+        previewLimit: 10 - allPreview.length,
+      });
+      totalCount += result.count;
+      allPreview.push(...result.preview);
+      if (!result.nextCursor) {
+        done = true;
+      } else {
+        cursor = result.nextCursor;
+      }
+    }
+
+    return { count: totalCount, preview: allPreview.slice(0, 10) };
   },
 });
 

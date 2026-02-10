@@ -9,8 +9,10 @@
 
 	let accounts = $state<any[]>([]);
 	let templates = $state<any[]>([]);
-	let leads = $state<any[]>([]);
+	let leadCount = $state(0);
+	let leadPreview = $state<any[]>([]);
 	let loading = $state(true);
+	let countingLeads = $state(false);
 
 	// Form state
 	let form = $state({
@@ -27,30 +29,49 @@
 		}
 	});
 
-	// Filtered leads preview
-	let filteredLeads = $derived(
-		leads.filter((lead: any) => {
-			if (!lead.email || lead.email.trim() === '') return false;
-			if (form.filters.branche && lead.branche !== form.filters.branche) return false;
-			if (form.filters.plz && lead.plz !== form.filters.plz) return false;
-			if (form.filters.segment && lead.segment !== form.filters.segment) return false;
-			if (form.filters.status && lead.status !== form.filters.status) return false;
-			if (lead.score < form.filters.scoreMin || lead.score > form.filters.scoreMax) return false;
-			return true;
-		})
-	);
+	// Unique filter values (loaded once)
+	let uniqueBranchen = $state<string[]>([]);
+	let uniquePLZ = $state<string[]>([]);
 
-	// Unique values for filters
-	let uniqueBranchen = $derived([...new Set(leads.map((l: any) => l.branche))].filter(Boolean));
-	let uniquePLZ = $derived([...new Set(leads.map((l: any) => l.plz))].filter(Boolean));
+	async function loadLeadCount() {
+		countingLeads = true;
+		try {
+			const result = await convex.action(api.email.countLeadsForCampaign, {
+				branche: form.filters.branche || undefined,
+				plz: form.filters.plz || undefined,
+				segment: form.filters.segment || undefined,
+				status: form.filters.status || undefined,
+				scoreMin: form.filters.scoreMin,
+				scoreMax: form.filters.scoreMax,
+			});
+			leadCount = result.count;
+			leadPreview = result.preview;
+		} catch (error) {
+			console.error('Failed to count leads:', error);
+		} finally {
+			countingLeads = false;
+		}
+	}
+
+	// Debounced filter change handler
+	let filterTimeout: any;
+	function onFilterChange() {
+		clearTimeout(filterTimeout);
+		filterTimeout = setTimeout(loadLeadCount, 300);
+	}
 
 	onMount(async () => {
 		try {
-			[accounts, templates, leads] = await Promise.all([
+			const [acc, tmpl, stats] = await Promise.all([
 				convex.query(api.email.listAccounts),
 				convex.query(api.email.listTemplates),
-				convex.query(api.leads.list)
+				convex.query(api.leads.stats),
 			]);
+			accounts = acc;
+			templates = tmpl;
+			uniqueBranchen = stats?.topBranchen?.map((b: any) => b.name) ?? [];
+			uniquePLZ = stats?.topPLZ?.map((p: any) => p.name) ?? [];
+			await loadLeadCount();
 		} catch (error) {
 			console.error('Failed to load data:', error);
 		} finally {
@@ -159,7 +180,7 @@
 									Branche
 								</label>
 								<select
-									bind:value={form.filters.branche}
+									bind:value={form.filters.branche} onchange={onFilterChange}
 									class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none transition-colors"
 								>
 									<option value="">— Alle —</option>
@@ -174,7 +195,7 @@
 									PLZ
 								</label>
 								<select
-									bind:value={form.filters.plz}
+									bind:value={form.filters.plz} onchange={onFilterChange}
 									class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none transition-colors"
 								>
 									<option value="">— Alle —</option>
@@ -189,7 +210,7 @@
 									Segment
 								</label>
 								<select
-									bind:value={form.filters.segment}
+									bind:value={form.filters.segment} onchange={onFilterChange}
 									class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none transition-colors"
 								>
 									<option value="">— Alle —</option>
@@ -205,7 +226,7 @@
 									Status
 								</label>
 								<select
-									bind:value={form.filters.status}
+									bind:value={form.filters.status} onchange={onFilterChange}
 									class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none transition-colors"
 								>
 									<option value="">— Alle —</option>
@@ -226,7 +247,7 @@
 								</label>
 								<input
 									type="range"
-									bind:value={form.filters.scoreMin}
+									bind:value={form.filters.scoreMin} oninput={onFilterChange}
 									min="0"
 									max="100"
 									step="5"
@@ -239,7 +260,7 @@
 								</label>
 								<input
 									type="range"
-									bind:value={form.filters.scoreMax}
+									bind:value={form.filters.scoreMax} oninput={onFilterChange}
 									min="0"
 									max="100"
 									step="5"
@@ -273,25 +294,29 @@
 				<div class="panel-header">Ziel-Leads</div>
 				<div class="p-3 space-y-3">
 					<div class="text-center py-4">
-						<div class="text-4xl font-mono font-bold text-[var(--color-accent)]">
-							{filteredLeads.length}
-						</div>
+						{#if countingLeads}
+							<div class="text-sm font-mono text-[var(--color-text-muted)] animate-pulse">Zähle...</div>
+						{:else}
+							<div class="text-4xl font-mono font-bold text-[var(--color-accent)]">
+								{leadCount.toLocaleString('de-DE')}
+							</div>
+						{/if}
 						<div class="text-[10px] font-mono text-[var(--color-text-muted)] uppercase tracking-widest mt-1">
 							Empfänger
 						</div>
 					</div>
 
-					{#if filteredLeads.length > 0}
+					{#if leadPreview.length > 0}
 						<div class="space-y-2 max-h-96 overflow-y-auto">
-							{#each filteredLeads.slice(0, 10) as lead}
+							{#each leadPreview as lead}
 								<div class="p-2 bg-[var(--color-surface-700)] rounded text-xs">
 									<div class="font-medium text-[var(--color-text-primary)]">{lead.firma}</div>
 									<div class="text-[var(--color-text-muted)]">{lead.email}</div>
 								</div>
 							{/each}
-							{#if filteredLeads.length > 10}
+							{#if leadCount > 10}
 								<div class="text-center text-xs text-[var(--color-text-muted)] pt-2">
-									+ {filteredLeads.length - 10} weitere
+									+ {(leadCount - 10).toLocaleString('de-DE')} weitere
 								</div>
 							{/if}
 						</div>
