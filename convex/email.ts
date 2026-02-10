@@ -631,7 +631,11 @@ function renderTemplate(template: string, data: Record<string, any>): string {
   let rendered = template;
   for (const [key, value] of Object.entries(data)) {
     const placeholder = new RegExp(`{{${key}}}`, "g");
-    rendered = rendered.replace(placeholder, String(value || ""));
+    let val = value;
+    if (val == null) val = "";
+    else if (Array.isArray(val)) val = val.join(", ");
+    else val = String(val).replace(/\n/g, "<br>");
+    rendered = rendered.replace(placeholder, val);
   }
   return rendered;
 }

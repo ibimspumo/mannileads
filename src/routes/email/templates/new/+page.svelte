@@ -14,7 +14,7 @@
 		for (const [k, v] of Object.entries(lead)) {
 			if (v == null) result[k] = '';
 			else if (Array.isArray(v)) result[k] = v.join(', ');
-			else result[k] = String(v);
+			else result[k] = String(v).replace(/\n/g, '<br>');
 		}
 		return result;
 	}
