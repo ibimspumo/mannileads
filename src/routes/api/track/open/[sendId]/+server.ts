@@ -1,7 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "$lib/convex";
 import type { RequestHandler } from "./$types";
-import { PUBLIC_CONVEX_URL } from "$env/static/public";
+const CONVEX_URL = "https://energetic-civet-402.convex.cloud";
 
 // 1x1 transparent GIF
 const TRACKING_PIXEL = Buffer.from(
@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ params, request, getClientAddress })
 
   try {
     // Initialize Convex client
-    const client = new ConvexHttpClient(PUBLIC_CONVEX_URL);
+    const client = new ConvexHttpClient(CONVEX_URL);
 
     // Log open event
     await client.mutation(api.email.createEvent, {

@@ -3279,7 +3279,34 @@
       "Umzugsunternehmen",
       "Entrümpelung",
       "Reinigungsservice",
-      "Hausmeisterservice"
+      "Hausmeisterservice",
+      "Sicherheitsdienst",
+      "Detektei",
+      "Übersetzungsbüro",
+      "Copyshop",
+      "Schneiderei",
+      "IT-Service",
+      "Webdesign",
+      "Computer-Reparatur",
+      "Handyreparatur",
+      "Elektroinstallation",
+      "Alarm- und Sicherheitstechnik",
+      "Pension",
+      "Ferienwohnung",
+      "Reisebüro",
+      "Eventlocation",
+      "Veranstaltungstechnik",
+      "DJ",
+      "Bestattungsinstitut",
+      "Steinmetz",
+      "Goldschmiede",
+      "Uhrmacher",
+      "Änderungsschneiderei",
+      "Wäscherei",
+      "Textilreinigung",
+      "Stadtverwaltung",
+      "Stadtmarketing",
+      "Rathaus"
     ],
     "23972": [
       "Friseur",
@@ -11927,7 +11954,14 @@
     "https://egn-wismar.de/kontakt/impressum",
     "https://www.vomsteindesign.de/profil/kontakt",
     "https://wwg-wismar.de/werbung-vagt/",
-    "https://www.die3umzuege.de/unternehmensgruppe/standorte/wismar/"
+    "https://www.die3umzuege.de/unternehmensgruppe/standorte/wismar/",
+    "https://www.gsg-security.eu/sicherheitsdienst-wismar/",
+    "https://bt-computer.eu/3.html",
+    "https://www.elektrotreff.de/elektro-plath/elektroinstallation",
+    "https://www.fewo-wismar-lotsenhus.de/",
+    "https://www.mobydisc.de/dj-wismar-djs_mieten_hochzeit_party_event",
+    "https://www.bestatter.de/bestatter/23970-wismar-rolf-langeinh-torsten-langebestattungsinstitut/",
+    "http://www.ke-schmuckdesign.de/ueber-ke/"
   ],
   "known_emails": [
     "mail@haircosmeticteam.de",
@@ -16155,11 +16189,14 @@
     "traeger@lernwert-wismar.de",
     "info@egn.de",
     "contact@irisvomstein.de",
-    "werbung.vagt@gmx.de"
+    "werbung.vagt@gmx.de",
+    "elektro-plath@t-online.de",
+    "lehnert@fewo-lotsenhus.de",
+    "info@bestattungsinstitut-lange.de"
   ],
   "stats": {
-    "total_leads": 6315,
-    "total_searches": 5476,
-    "last_run": "2026-02-10T12:22:32.534834"
+    "total_leads": 6322,
+    "total_searches": 5503,
+    "last_run": "2026-02-10T12:27:08.944495"
   }
 }
