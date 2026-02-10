@@ -41,8 +41,8 @@
 	onMount(async () => {
 		try {
 			const leads = await convex.query(api.leads.topAndRecent, { limit: 1 });
-			if (leads?.recent?.length > 0) previewLead = leads.recent[0];
-			else if (leads?.topScored?.length > 0) previewLead = leads.topScored[0];
+			if (leads?.recentLeads?.length > 0) previewLead = leads.recentLeads[0];
+			else if (leads?.topLeads?.length > 0) previewLead = leads.topLeads[0];
 
 			const tmpl = await convex.query(api.email.getTemplate, { id: templateId as any });
 			if (tmpl) {
