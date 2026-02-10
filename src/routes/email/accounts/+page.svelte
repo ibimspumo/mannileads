@@ -93,6 +93,23 @@
 		}
 	}
 
+	// Connection test state
+	let testingId = $state<string | null>(null);
+	let testResults = $state<Record<string, any>>({});
+
+	async function testConnection(id: string) {
+		testingId = id;
+		testResults = { ...testResults, [id]: null };
+		try {
+			const result = await convex.action(api.email.testConnection, { id: id as any });
+			testResults = { ...testResults, [id]: result };
+		} catch (error: any) {
+			testResults = { ...testResults, [id]: { success: false, error: error.message || 'Unbekannter Fehler' } };
+		} finally {
+			testingId = null;
+		}
+	}
+
 	async function toggleActive(id: string, active: boolean) {
 		try {
 			await convex.mutation(api.email.updateAccount, {
@@ -292,6 +309,13 @@
 								</div>
 								<div class="flex gap-1">
 									<button
+										onclick={() => testConnection(account._id)}
+										disabled={testingId === account._id}
+										class="px-2 py-1 text-xs font-mono text-[var(--color-info)] hover:underline disabled:opacity-50 disabled:cursor-wait transition-colors"
+									>
+										{testingId === account._id ? 'TESTE...' : 'TESTEN'}
+									</button>
+									<button
 										onclick={() => toggleActive(account._id, account.active)}
 										class="px-2 py-1 text-xs font-mono text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
 									>
@@ -311,6 +335,24 @@
 									</button>
 								</div>
 							</div>
+							{#if testResults[account._id]}
+								{@const result = testResults[account._id]}
+								<div class="mt-2 p-2 rounded text-xs font-mono {result.success ? 'bg-green-900/30 border border-green-700/50' : 'bg-red-900/30 border border-red-700/50'}">
+									{#if result.success}
+										<div class="text-[var(--color-success)] font-bold">✅ Verbindung erfolgreich</div>
+										<div class="text-[var(--color-text-secondary)] mt-1 space-y-0.5">
+											<div>Status: {result.productionAccess ? '🟢 Production' : '🟡 Sandbox'}</div>
+											{#if result.sendQuota}
+												<div>Quota: {result.sendQuota.sentLast24Hours} / {result.sendQuota.max24HourSend} (24h)</div>
+												<div>Max Rate: {result.sendQuota.maxSendRate}/s</div>
+											{/if}
+										</div>
+									{:else}
+										<div class="text-[var(--color-error)] font-bold">❌ Verbindung fehlgeschlagen</div>
+										<div class="text-[var(--color-text-muted)] mt-1">{result.error}</div>
+									{/if}
+								</div>
+							{/if}
 						</div>
 					{/each}
 				{/if}

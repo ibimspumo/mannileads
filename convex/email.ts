@@ -412,6 +412,53 @@ export const listEvents = query({
   },
 });
 
+// ===== TEST CONNECTION =====
+
+export const testConnection = action({
+  args: { id: v.id("emailAccounts") },
+  handler: async (ctx, args) => {
+    const account: any = await ctx.runQuery(api.email.getAccount, { id: args.id });
+    if (!account) {
+      return { success: false, error: "Account nicht gefunden" };
+    }
+
+    try {
+      const { SESv2Client, GetAccountCommand } = await import("@aws-sdk/client-sesv2");
+
+      const client: any = new SESv2Client({
+        region: account.sesRegion,
+        credentials: {
+          accessKeyId: account.sesAccessKey,
+          secretAccessKey: account.sesSecretKey,
+        },
+      });
+
+      const response: any = await client.send(new GetAccountCommand({}));
+
+      const quota: any = response.SendQuota;
+      const productionAccess: boolean = response.ProductionAccessEnabled ?? false;
+
+      return {
+        success: true,
+        productionAccess,
+        sendQuota: quota
+          ? {
+              max24HourSend: quota.Max24HourSend ?? 0,
+              maxSendRate: quota.MaxSendRate ?? 0,
+              sentLast24Hours: quota.SentLast24Hours ?? 0,
+            }
+          : null,
+        enforcementStatus: response.EnforcementStatus ?? "unknown",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || "Unbekannter Fehler",
+      };
+    }
+  },
+});
+
 // ===== CAMPAIGN UTILITIES =====
 
 // Render template with lead data

@@ -3306,7 +3306,10 @@
       "Textilreinigung",
       "Stadtverwaltung",
       "Stadtmarketing",
-      "Rathaus"
+      "Rathaus",
+      "Tourismusverband",
+      "Wirtschaftsförderung",
+      "Gemeinde"
     ],
     "23972": [
       "Friseur",
@@ -11961,7 +11964,8 @@
     "https://www.fewo-wismar-lotsenhus.de/",
     "https://www.mobydisc.de/dj-wismar-djs_mieten_hochzeit_party_event",
     "https://www.bestatter.de/bestatter/23970-wismar-rolf-langeinh-torsten-langebestattungsinstitut/",
-    "http://www.ke-schmuckdesign.de/ueber-ke/"
+    "http://www.ke-schmuckdesign.de/ueber-ke/",
+    "https://www.christliche-gemeinden.eu/23970_landeskirchliche_gemeinschaft_wismar.html"
   ],
   "known_emails": [
     "mail@haircosmeticteam.de",
@@ -16195,8 +16199,8 @@
     "info@bestattungsinstitut-lange.de"
   ],
   "stats": {
-    "total_leads": 6322,
-    "total_searches": 5503,
-    "last_run": "2026-02-10T12:27:08.944495"
+    "total_leads": 6323,
+    "total_searches": 5506,
+    "last_run": "2026-02-10T12:27:59.686281"
   }
 }
