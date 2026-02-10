@@ -21,20 +21,61 @@
 	let showPlaceholders = $state(false);
 	let showColorPicker = $state(false);
 
-	const PLACEHOLDERS = [
-		{ key: 'firma', label: 'Firma' },
-		{ key: 'email', label: 'Email' },
-		{ key: 'ansprechpartner', label: 'Ansprechpartner' },
-		{ key: 'telefon', label: 'Telefon' },
-		{ key: 'strasse', label: 'Straße' },
-		{ key: 'plz', label: 'PLZ' },
-		{ key: 'ort', label: 'Ort' },
-		{ key: 'bundesland', label: 'Bundesland' },
-		{ key: 'branche', label: 'Branche' },
-		{ key: 'website', label: 'Website' },
-		{ key: 'score', label: 'Score' },
-		{ key: 'segment', label: 'Segment' },
+	const PLACEHOLDER_GROUPS = [
+		{ group: 'Firma', items: [
+			{ key: 'firma', label: 'Firmenname' },
+			{ key: 'website', label: 'Website' },
+			{ key: 'branche', label: 'Branche' },
+			{ key: 'groesse', label: 'Größe' },
+			{ key: 'plz', label: 'PLZ' },
+			{ key: 'ort', label: 'Ort' },
+		]},
+		{ group: 'Kontakt', items: [
+			{ key: 'ansprechpartner', label: 'Ansprechpartner' },
+			{ key: 'position', label: 'Position' },
+			{ key: 'email', label: 'Email' },
+			{ key: 'telefon', label: 'Telefon' },
+		]},
+		{ group: 'Online-Präsenz', items: [
+			{ key: 'websiteQualitaet', label: 'Website-Qualität (0-100)' },
+			{ key: 'socialMediaLinks', label: 'Social Media Links' },
+			{ key: 'googleBewertung', label: 'Google-Bewertung' },
+		]},
+		{ group: 'Scoring', items: [
+			{ key: 'score', label: 'Score' },
+			{ key: 'segment', label: 'Segment' },
+			{ key: 'kiScore', label: 'KI-Score' },
+			{ key: 'kiSegment', label: 'KI-Segment' },
+			{ key: 'kiScoreBegruendung', label: 'KI-Score Begründung' },
+		]},
+		{ group: 'KI-Pitch & Analyse', items: [
+			{ key: 'kiZusammenfassung', label: 'KI-Zusammenfassung' },
+			{ key: 'kiAnsprache', label: 'Pitch AgentZ' },
+			{ key: 'kiAnspracheSig', label: 'Pitch SIG-Werbung' },
+			{ key: 'kiZielgruppe', label: 'Zielgruppe' },
+			{ key: 'kiOnlineAuftritt', label: 'Online-Auftritt Bewertung' },
+			{ key: 'kiSchwaechen', label: 'Schwächen' },
+			{ key: 'kiChancen', label: 'Chancen für uns' },
+			{ key: 'kiWettbewerb', label: 'Wettbewerbssituation' },
+		]},
+		{ group: 'Sonstiges', items: [
+			{ key: 'status', label: 'Status' },
+			{ key: 'tags', label: 'Tags' },
+			{ key: 'notizen', label: 'Notizen' },
+		]},
 	];
+
+	let placeholderSearch = $state('');
+	let filteredGroups = $derived(
+		PLACEHOLDER_GROUPS.map(g => ({
+			...g,
+			items: g.items.filter(i => 
+				!placeholderSearch || 
+				i.label.toLowerCase().includes(placeholderSearch.toLowerCase()) ||
+				i.key.toLowerCase().includes(placeholderSearch.toLowerCase())
+			)
+		})).filter(g => g.items.length > 0)
+	);
 
 	const COLORS = ['#000000', '#333333', '#666666', '#ffa502', '#e74c3c', '#2ecc71', '#3498db', '#9b59b6', '#1abc9c', '#f39c12'];
 
@@ -184,21 +225,35 @@
 		<div class="relative">
 			<button
 				class="px-2 py-1.5 text-xs font-mono font-bold rounded bg-[var(--color-accent)] text-[var(--color-surface-900)] hover:opacity-90 transition-all shadow-[0_0_8px_rgba(255,165,2,0.2)]"
-				onclick={() => { showPlaceholders = !showPlaceholders; showColorPicker = false; }}
+				onclick={() => { showPlaceholders = !showPlaceholders; showColorPicker = false; placeholderSearch = ''; }}
 			>
 				{'{{x}}'} PLATZHALTER
 			</button>
 			{#if showPlaceholders}
-				<div class="absolute top-full left-0 mt-1 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded shadow-lg z-20 w-52 max-h-64 overflow-y-auto">
-					{#each PLACEHOLDERS as ph}
-						<button
-							class="w-full text-left px-3 py-2 text-xs font-mono hover:bg-[var(--color-surface-600)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors flex justify-between items-center"
-							onclick={() => insertPlaceholder(ph.key)}
-						>
-							<span class="text-[var(--color-text-muted)]">{ph.label}</span>
-							<span class="text-[var(--color-accent)]">{`{{${ph.key}}}`}</span>
-						</button>
-					{/each}
+				<div class="absolute top-full left-0 mt-1 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded shadow-lg z-20 w-72 max-h-80 overflow-hidden flex flex-col">
+					<div class="p-2 border-b border-[var(--color-surface-600)]">
+						<input
+							bind:value={placeholderSearch}
+							placeholder="Suchen..."
+							class="w-full px-2 py-1 text-xs font-mono bg-[var(--color-surface-800)] border border-[var(--color-surface-600)] rounded text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+						/>
+					</div>
+					<div class="overflow-y-auto max-h-64">
+						{#each filteredGroups as group}
+							<div class="px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-wider text-[var(--color-accent)] bg-[var(--color-surface-800)] sticky top-0">
+								{group.group}
+							</div>
+							{#each group.items as ph}
+								<button
+									class="w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-[var(--color-surface-600)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors flex justify-between items-center gap-2"
+									onclick={() => insertPlaceholder(ph.key)}
+								>
+									<span class="text-[var(--color-text-muted)] truncate">{ph.label}</span>
+									<span class="text-[var(--color-accent)] text-[10px] shrink-0">{`{{${ph.key}}}`}</span>
+								</button>
+							{/each}
+						{/each}
+					</div>
 				</div>
 			{/if}
 		</div>
