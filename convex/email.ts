@@ -412,6 +412,94 @@ export const listEvents = query({
   },
 });
 
+// ===== FILTER OPTIONS =====
+
+// Internal query to gather unique branchen/plz from one page
+export const _filterOptionsPage = internalQuery({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const result = await ctx.db.query("leads").paginate({
+      numItems: 500,
+      cursor: (args.cursor ?? null) as any,
+    });
+    const branchen = new Set<string>();
+    const plzSet = new Set<string>();
+    for (const l of result.page) {
+      if (l.branche && l.branche.trim()) branchen.add(l.branche);
+      if (l.plz && l.plz.trim()) plzSet.add(l.plz);
+    }
+    return {
+      branchen: Array.from(branchen),
+      plz: Array.from(plzSet),
+      nextCursor: result.isDone ? null : (result.continueCursor as string),
+    };
+  },
+});
+
+// Action: get all unique branchen and PLZ values
+export const getFilterOptions = action({
+  args: {},
+  handler: async (ctx) => {
+    const allBranchen = new Set<string>();
+    const allPLZ = new Set<string>();
+    let cursor: string | null = null;
+    let done = false;
+
+    while (!done) {
+      const result: any = await ctx.runQuery(internal.email._filterOptionsPage, { cursor });
+      for (const b of result.branchen) allBranchen.add(b);
+      for (const p of result.plz) allPLZ.add(p);
+      if (!result.nextCursor) {
+        done = true;
+      } else {
+        cursor = result.nextCursor;
+      }
+    }
+
+    return {
+      branchen: Array.from(allBranchen).sort(),
+      plz: Array.from(allPLZ).sort(),
+    };
+  },
+});
+
+// ===== EMAIL PREVIEW WITH SIGNATURE =====
+
+export const previewEmailWithSignature = query({
+  args: {
+    templateId: v.id("emailTemplates"),
+    accountId: v.id("emailAccounts"),
+    leadId: v.id("leads"),
+  },
+  handler: async (ctx, args) => {
+    const template = await ctx.db.get(args.templateId);
+    const lead = await ctx.db.get(args.leadId);
+    const account = await ctx.db.get(args.accountId);
+    if (!template || !lead || !account) return null;
+
+    const subject = renderTemplate(template.subject, lead);
+    let htmlBody = renderTemplate(template.htmlBody, lead);
+
+    // Append signature if present
+    if (account.signatureHtml) {
+      htmlBody += '<br/>' + account.signatureHtml;
+    }
+
+    return {
+      subject,
+      htmlBody,
+      lead,
+      account: {
+        fromName: account.fromName,
+        fromEmail: account.fromEmail,
+        name: account.name,
+      },
+    };
+  },
+});
+
 // ===== TEST CONNECTION =====
 
 export const testConnection = action({

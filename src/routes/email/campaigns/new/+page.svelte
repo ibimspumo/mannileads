@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	
-	
 	import { convex, api } from '$lib/convex';
-
-	
+	import SearchableDropdown from '$lib/components/SearchableDropdown.svelte';
+	import EmailPreviewModal from '$lib/components/EmailPreviewModal.svelte';
 
 	let accounts = $state<any[]>([]);
 	let templates = $state<any[]>([]);
@@ -29,9 +27,14 @@
 		}
 	});
 
-	// Unique filter values (loaded once)
+	// Unique filter values (loaded dynamically)
 	let uniqueBranchen = $state<string[]>([]);
 	let uniquePLZ = $state<string[]>([]);
+
+	// Email preview modal state
+	let showPreview = $state(false);
+	let previewData = $state<any>(null);
+	let previewLoading = $state(false);
 
 	async function loadLeadCount() {
 		countingLeads = true;
@@ -60,17 +63,38 @@
 		filterTimeout = setTimeout(loadLeadCount, 300);
 	}
 
+	async function openPreview(lead: any) {
+		if (!form.templateId || !form.accountId) return;
+		previewLoading = true;
+		showPreview = true;
+		try {
+			const data = await convex.query(api.email.previewEmailWithSignature, {
+				templateId: form.templateId as any,
+				accountId: form.accountId as any,
+				leadId: lead._id,
+			});
+			previewData = data;
+		} catch (error) {
+			console.error('Preview failed:', error);
+			previewData = null;
+		} finally {
+			previewLoading = false;
+		}
+	}
+
 	onMount(async () => {
 		try {
-			const [acc, tmpl, stats] = await Promise.all([
+			const [acc, tmpl] = await Promise.all([
 				convex.query(api.email.listAccounts),
 				convex.query(api.email.listTemplates),
-				convex.query(api.leads.stats),
 			]);
 			accounts = acc;
 			templates = tmpl;
-			uniqueBranchen = stats?.topBranchen?.map((b: any) => b.name) ?? [];
-			uniquePLZ = stats?.topPLZ?.map((p: any) => p.name) ?? [];
+			// Load filter options dynamically from leads table
+			convex.action(api.email.getFilterOptions).then((opts: any) => {
+				uniqueBranchen = opts.branchen;
+				uniquePLZ = opts.plz;
+			}).catch((e: any) => console.error('Filter options failed:', e));
 			await loadLeadCount();
 		} catch (error) {
 			console.error('Failed to load data:', error);
@@ -175,35 +199,21 @@
 					<div class="panel-header">Lead-Targeting</div>
 					<div class="p-4 space-y-4">
 						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<label class="block text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
-									Branche
-								</label>
-								<select
-									bind:value={form.filters.branche} onchange={onFilterChange}
-									class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none transition-colors"
-								>
-									<option value="">— Alle —</option>
-									{#each uniqueBranchen as branche}
-										<option value={branche}>{branche}</option>
-									{/each}
-								</select>
-							</div>
+							<SearchableDropdown
+								options={uniqueBranchen}
+								bind:value={form.filters.branche}
+								label="Branche"
+								placeholder="— Alle Branchen —"
+								onchange={onFilterChange}
+							/>
 
-							<div>
-								<label class="block text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
-									PLZ
-								</label>
-								<select
-									bind:value={form.filters.plz} onchange={onFilterChange}
-									class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none transition-colors"
-								>
-									<option value="">— Alle —</option>
-									{#each uniquePLZ as plz}
-										<option value={plz}>{plz}</option>
-									{/each}
-								</select>
-							</div>
+							<SearchableDropdown
+								options={uniquePLZ}
+								bind:value={form.filters.plz}
+								label="PLZ"
+								placeholder="— Alle PLZ —"
+								onchange={onFilterChange}
+							/>
 
 							<div>
 								<label class="block text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
@@ -309,10 +319,20 @@
 					{#if leadPreview.length > 0}
 						<div class="space-y-2 max-h-96 overflow-y-auto">
 							{#each leadPreview as lead}
-								<div class="p-2 bg-[var(--color-surface-700)] rounded text-xs">
-									<div class="font-medium text-[var(--color-text-primary)]">{lead.firma}</div>
+								<button
+									type="button"
+									onclick={() => openPreview(lead)}
+									disabled={!form.templateId || !form.accountId}
+									class="w-full text-left p-2 bg-[var(--color-surface-700)] rounded text-xs hover:bg-[var(--color-surface-600)] transition-colors cursor-pointer disabled:cursor-default disabled:opacity-60 group"
+								>
+									<div class="font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">{lead.firma}</div>
 									<div class="text-[var(--color-text-muted)]">{lead.email}</div>
-								</div>
+									{#if form.templateId && form.accountId}
+										<div class="text-[10px] text-[var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
+											▶ Preview anzeigen
+										</div>
+									{/if}
+								</button>
 							{/each}
 							{#if leadCount > 10}
 								<div class="text-center text-xs text-[var(--color-text-muted)] pt-2">
@@ -326,3 +346,26 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Email Preview Modal -->
+{#if previewData}
+	<EmailPreviewModal
+		bind:show={showPreview}
+		subject={previewData.subject}
+		htmlBody={previewData.htmlBody}
+		fromName={previewData.account.fromName}
+		fromEmail={previewData.account.fromEmail}
+		toFirma={previewData.lead.firma}
+		toEmail={previewData.lead.email}
+	/>
+{:else if showPreview}
+	<EmailPreviewModal
+		bind:show={showPreview}
+		subject="Laden..."
+		htmlBody="<p>Lade Preview...</p>"
+		fromName=""
+		fromEmail=""
+		toFirma=""
+		toEmail=""
+	/>
+{/if}
