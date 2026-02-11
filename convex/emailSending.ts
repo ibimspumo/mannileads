@@ -215,7 +215,8 @@ interface SMTPParams {
 }
 
 async function sendViaSMTP(params: SMTPParams): Promise<any> {
-  const nodemailer = await import("nodemailer");
+  const nodemailerModule = await import("nodemailer");
+  const nodemailer = nodemailerModule.default || nodemailerModule;
 
   const transporter = nodemailer.createTransport({
     host: params.host,

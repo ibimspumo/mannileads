@@ -14,7 +14,8 @@ export const testConnection = action({
     }
 
     try {
-      const nodemailer = await import("nodemailer");
+      const nodemailerModule = await import("nodemailer");
+      const nodemailer = nodemailerModule.default || nodemailerModule;
 
       const transporter = nodemailer.createTransport({
         host: account.smtpHost,
