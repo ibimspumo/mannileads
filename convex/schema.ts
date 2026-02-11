@@ -125,10 +125,16 @@ export default defineSchema({
     fromEmail: v.string(),          // kontakt@schwerinistgeil.de
     fromName: v.string(),           // "Manfred Bellmann"
     signatureHtml: v.string(),      // HTML Signatur
-    // SES Credentials (encrypted in production, plain for now)
-    sesAccessKey: v.string(),
-    sesSecretKey: v.string(),
-    sesRegion: v.string(),          // us-east-1
+    // SMTP Credentials
+    smtpHost: v.optional(v.string()),           // mail.your-server.de
+    smtpPort: v.optional(v.number()),           // 587
+    smtpUser: v.optional(v.string()),           // kontakt@schwerinistgeil.de
+    smtpPassword: v.optional(v.string()),
+    smtpTls: v.optional(v.boolean()),           // true = STARTTLS
+    // Legacy SES fields (optional, for migration)
+    sesAccessKey: v.optional(v.string()),
+    sesSecretKey: v.optional(v.string()),
+    sesRegion: v.optional(v.string()),
     // Status
     active: v.boolean(),
     verified: v.boolean(),          // SES Domain/Email verified?

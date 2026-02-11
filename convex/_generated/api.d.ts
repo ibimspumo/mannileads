@@ -10,7 +10,9 @@
 
 import type * as coverage from "../coverage.js";
 import type * as email from "../email.js";
+import type * as emailActions from "../emailActions.js";
 import type * as emailSending from "../emailSending.js";
+import type * as emailSendingMutations from "../emailSendingMutations.js";
 import type * as http from "../http.js";
 import type * as leads from "../leads.js";
 
@@ -23,7 +25,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   coverage: typeof coverage;
   email: typeof email;
+  emailActions: typeof emailActions;
   emailSending: typeof emailSending;
+  emailSendingMutations: typeof emailSendingMutations;
   http: typeof http;
   leads: typeof leads;
 }>;

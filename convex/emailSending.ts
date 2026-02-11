@@ -1,5 +1,6 @@
+"use node";
 import { v } from "convex/values";
-import { action, internalMutation, internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
@@ -47,7 +48,7 @@ export const startCampaign = action({
       const htmlBody = renderTemplate(template.htmlBody, lead);
 
       // Create send
-      const sendId: any = await ctx.runMutation(internal.emailSending.createSend, {
+      const sendId: any = await ctx.runMutation(internal.emailSendingMutations.createSend, {
         campaignId: args.campaignId,
         leadId: lead._id,
         accountId: account._id,
@@ -69,25 +70,6 @@ export const startCampaign = action({
     });
 
     return { totalLeads: filteredLeads.length, sendIds };
-  },
-});
-
-// Internal mutation to create send
-export const createSend = internalMutation({
-  args: {
-    campaignId: v.id("emailCampaigns"),
-    leadId: v.id("leads"),
-    accountId: v.id("emailAccounts"),
-    to: v.string(),
-    subject: v.string(),
-    htmlBody: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("emailSends", {
-      ...args,
-      status: "queued",
-      queuedAt: new Date().toISOString(),
-    });
   },
 });
 
@@ -127,8 +109,9 @@ export const processSendQueue = action({
         results.push({ sendId: send._id, success: false, error: error.message });
       }
 
-      // Rate limiting: 1 email per second (SES Sandbox limit)
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Rate limiting: ~72 seconds between emails = max 50/hour (Hetzner SMTP limit)
+      // For batches, 2 seconds between sends is safe for moderate volumes
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
     return { processed: results.length, results };
@@ -154,12 +137,17 @@ export const sendEmail = internalAction({
     // Add tracking pixel and replace links
     const trackedHtml = await addTracking(send.htmlBody, args.sendId);
 
-    // Send via SES (AWS SDK v3)
+    // Send via SMTP (Nodemailer)
     try {
-      const result = await sendViaSES({
-        accessKey: account.sesAccessKey,
-        secretKey: account.sesSecretKey,
-        region: account.sesRegion,
+      if (!account.smtpHost || !account.smtpUser || !account.smtpPassword) {
+        throw new Error("SMTP credentials not configured for this account");
+      }
+      const result = await sendViaSMTP({
+        host: account.smtpHost,
+        port: account.smtpPort ?? 587,
+        user: account.smtpUser,
+        password: account.smtpPassword,
+        tls: account.smtpTls ?? true,
         from: `${account.fromName} <${account.fromEmail}>`,
         to: send.to,
         subject: send.subject,
@@ -170,7 +158,7 @@ export const sendEmail = internalAction({
       await ctx.runMutation(api.email.updateSendStatus, {
         id: args.sendId,
         status: "sent",
-        sesMessageId: result.MessageId,
+        sesMessageId: result.messageId, // nodemailer messageId
       });
 
       // Account stats updated - could be tracked via aggregation later
@@ -212,8 +200,48 @@ async function addTracking(htmlBody: string, sendId: Id<"emailSends">): Promise<
   return tracked;
 }
 
-// ===== SES INTEGRATION =====
+// ===== SMTP INTEGRATION (Nodemailer) =====
 
+interface SMTPParams {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  tls: boolean;
+  from: string;
+  to: string;
+  subject: string;
+  htmlBody: string;
+}
+
+async function sendViaSMTP(params: SMTPParams): Promise<any> {
+  const nodemailer = await import("nodemailer");
+
+  const transporter = nodemailer.createTransport({
+    host: params.host,
+    port: params.port,
+    secure: params.port === 465, // true for 465, false for 587 (STARTTLS)
+    auth: {
+      user: params.user,
+      pass: params.password,
+    },
+    tls: {
+      rejectUnauthorized: true,
+    },
+  });
+
+  const info = await transporter.sendMail({
+    from: params.from,
+    to: params.to,
+    subject: params.subject,
+    html: params.htmlBody,
+  });
+
+  return info;
+}
+
+// ===== LEGACY SES INTEGRATION (auskommentiert als Fallback) =====
+/*
 interface SESParams {
   accessKey: string;
   secretKey: string;
@@ -225,14 +253,7 @@ interface SESParams {
 }
 
 async function sendViaSES(params: SESParams): Promise<any> {
-  // Use AWS SDK v3 for SES
-  // In production, install: npm install @aws-sdk/client-sesv2
-  
-  // For now, we'll use fetch to call SES API directly
-  // This is a simplified version - in production use proper AWS SDK
-  
   const { SESv2Client, SendEmailCommand } = await import("@aws-sdk/client-sesv2");
-  
   const client = new SESv2Client({
     region: params.region,
     credentials: {
@@ -240,31 +261,20 @@ async function sendViaSES(params: SESParams): Promise<any> {
       secretAccessKey: params.secretKey,
     },
   });
-
   const command = new SendEmailCommand({
     FromEmailAddress: params.from,
-    Destination: {
-      ToAddresses: [params.to],
-    },
+    Destination: { ToAddresses: [params.to] },
     Content: {
       Simple: {
-        Subject: {
-          Data: params.subject,
-          Charset: "UTF-8",
-        },
-        Body: {
-          Html: {
-            Data: params.htmlBody,
-            Charset: "UTF-8",
-          },
-        },
+        Subject: { Data: params.subject, Charset: "UTF-8" },
+        Body: { Html: { Data: params.htmlBody, Charset: "UTF-8" } },
       },
     },
   });
-
   const response = await client.send(command);
   return response;
 }
+*/
 
 // ===== TEMPLATE RENDERING =====
 

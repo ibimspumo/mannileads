@@ -17,9 +17,11 @@
 		fromEmail: '',
 		fromName: '',
 		signatureHtml: '',
-		sesAccessKey: '',
-		sesSecretKey: '',
-		sesRegion: 'us-east-1'
+		smtpHost: 'mail.your-server.de',
+		smtpPort: 587,
+		smtpUser: '',
+		smtpPassword: '',
+		smtpTls: true
 	});
 
 	onMount(async () => {
@@ -42,9 +44,11 @@
 			fromEmail: '',
 			fromName: '',
 			signatureHtml: '',
-			sesAccessKey: '',
-			sesSecretKey: '',
-			sesRegion: 'us-east-1'
+			smtpHost: 'mail.your-server.de',
+			smtpPort: 587,
+			smtpUser: '',
+			smtpPassword: '',
+			smtpTls: true
 		};
 		editingId = null;
 		showForm = false;
@@ -56,9 +60,11 @@
 			fromEmail: account.fromEmail,
 			fromName: account.fromName,
 			signatureHtml: account.signatureHtml,
-			sesAccessKey: account.sesAccessKey,
-			sesSecretKey: account.sesSecretKey,
-			sesRegion: account.sesRegion
+			smtpHost: account.smtpHost || 'mail.your-server.de',
+			smtpPort: account.smtpPort || 587,
+			smtpUser: account.smtpUser || '',
+			smtpPassword: account.smtpPassword || '',
+			smtpTls: account.smtpTls ?? true
 		};
 		editingId = account._id;
 		showForm = true;
@@ -101,7 +107,7 @@
 		testingId = id;
 		testResults = { ...testResults, [id]: null };
 		try {
-			const result = await convex.action(api.email.testConnection, { id: id as any });
+			const result = await convex.action(api.emailActions.testConnection, { id: id as any });
 			testResults = { ...testResults, [id]: result };
 		} catch (error: any) {
 			testResults = { ...testResults, [id]: { success: false, error: error.message || 'Unbekannter Fehler' } };
@@ -131,7 +137,7 @@
 				EMAIL ACCOUNTS
 			</h1>
 			<p class="text-sm text-[var(--color-text-muted)] mt-1">
-				AWS SES Multi-Account Configuration
+				SMTP Multi-Account Configuration
 			</p>
 		</div>
 		<div class="flex gap-2">
@@ -199,42 +205,63 @@
 						</div>
 						<div>
 							<label class="block text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
-								SES Region
-							</label>
-							<select
-								bind:value={form.sesRegion}
-								class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none transition-colors"
-							>
-								<option value="us-east-1">us-east-1</option>
-								<option value="eu-west-1">eu-west-1</option>
-								<option value="eu-central-1">eu-central-1</option>
-							</select>
-						</div>
-					</div>
-
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<div>
-							<label class="block text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
-								AWS Access Key
+								SMTP Host
 							</label>
 							<input
 								type="text"
-								bind:value={form.sesAccessKey}
-								placeholder="AKIAIOSFODNN7EXAMPLE"
+								bind:value={form.smtpHost}
+								placeholder="mail.your-server.de"
+								class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] font-mono focus:border-[var(--color-accent)] focus:outline-none transition-colors"
+							/>
+						</div>
+					</div>
+
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<div>
+							<label class="block text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
+								SMTP Port
+							</label>
+							<input
+								type="number"
+								bind:value={form.smtpPort}
+								placeholder="587"
 								class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] font-mono focus:border-[var(--color-accent)] focus:outline-none transition-colors"
 							/>
 						</div>
 						<div>
 							<label class="block text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
-								AWS Secret Key
+								SMTP User
 							</label>
 							<input
-								type="password"
-								bind:value={form.sesSecretKey}
-								placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+								type="text"
+								bind:value={form.smtpUser}
+								placeholder="kontakt@schwerinistgeil.de"
 								class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] font-mono focus:border-[var(--color-accent)] focus:outline-none transition-colors"
 							/>
 						</div>
+						<div>
+							<label class="block text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1">
+								SMTP Password
+							</label>
+							<input
+								type="password"
+								bind:value={form.smtpPassword}
+								placeholder="••••••••"
+								class="w-full px-3 py-2 bg-[var(--color-surface-700)] border border-[var(--color-surface-600)] rounded text-sm text-[var(--color-text-primary)] font-mono focus:border-[var(--color-accent)] focus:outline-none transition-colors"
+							/>
+						</div>
+					</div>
+
+					<div class="flex items-center gap-2">
+						<input
+							type="checkbox"
+							bind:checked={form.smtpTls}
+							id="smtpTls"
+							class="accent-[var(--color-accent)]"
+						/>
+						<label for="smtpTls" class="text-xs font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
+							STARTTLS verwenden
+						</label>
 					</div>
 
 					<div>
@@ -303,7 +330,7 @@
 											<span class="text-[var(--color-text-muted)]">&lt;{account.fromEmail}&gt;</span>
 										</div>
 										<div class="text-xs text-[var(--color-text-muted)]">
-											Region: {account.sesRegion} • Gesendet: {account.totalSent}
+											SMTP: {account.smtpHost}:{account.smtpPort} • Gesendet: {account.totalSent}
 										</div>
 									</div>
 								</div>
@@ -340,12 +367,8 @@
 								<div class="mt-2 p-2 rounded text-xs font-mono {result.success ? 'bg-green-900/30 border border-green-700/50' : 'bg-red-900/30 border border-red-700/50'}">
 									{#if result.success}
 										<div class="text-[var(--color-success)] font-bold">✅ Verbindung erfolgreich</div>
-										<div class="text-[var(--color-text-secondary)] mt-1 space-y-0.5">
-											<div>Status: {result.productionAccess ? '🟢 Production' : '🟡 Sandbox'}</div>
-											{#if result.sendQuota}
-												<div>Quota: {result.sendQuota.sentLast24Hours} / {result.sendQuota.max24HourSend} (24h)</div>
-												<div>Max Rate: {result.sendQuota.maxSendRate}/s</div>
-											{/if}
+										<div class="text-[var(--color-text-secondary)] mt-1">
+											{result.message || 'SMTP-Verbindung OK'}
 										</div>
 									{:else}
 										<div class="text-[var(--color-error)] font-bold">❌ Verbindung fehlgeschlagen</div>
